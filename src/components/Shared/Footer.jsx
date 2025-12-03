@@ -72,11 +72,11 @@ const Footer = () => {
               {/* Logo */}
               <img 
                 src="/logo.png" 
-                alt="¿Dónde Salimos?" 
+                alt="Dónde Salimos?" 
                 className="w-12 h-12 rounded-xl object-contain"
               />
               <div>
-                <h3 className="font-bold text-xl">¿Dónde Salimos?</h3>
+                <h3 className="font-bold text-xl">Dónde Salimos?</h3>
                 <p className="text-gray-400 text-sm">Tu guía de salidas nocturnas</p>
               </div>
             </div>

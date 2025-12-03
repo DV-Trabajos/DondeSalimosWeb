@@ -43,7 +43,7 @@ const GoogleLoginButton = ({
             }
           }
         } catch (error) {
-          console.error('❌ Error en registro:', error);
+          console.error('Error en registro:', error);
           
           if (onError) {
             onError({

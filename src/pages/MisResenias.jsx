@@ -218,44 +218,53 @@ const MisResenias = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-sm font-medium text-white/80 mb-3">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span>Tus opiniones importan</span>
+                <Star className="w-4 h-4" />
+                <span>Historial de opiniones</span>
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">
                 Mis Reseñas
               </h1>
               <p className="text-gray-300">
-                Todas las reseñas que has dejado en diferentes comercios
+                Todas las opiniones que compartiste sobre los comercios
               </p>
             </div>
           </div>
         </div>
-
-        {/* Wave */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="w-full h-8">
-            <path d="M0 60L60 52C120 44 240 28 360 22C480 16 600 20 720 24C840 28 960 32 1080 34C1200 36 1320 36 1380 36L1440 36V60H0Z" fill="#f9fafb"/>
-          </svg>
-        </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Error */}
-        {error && (
-          <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 mb-6">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-              <p className="text-red-800 font-medium">{error}</p>
+      {/* Alerta de cuenta suspendida */}
+      {user && user.estado === false && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-amber-800 mb-1">
+                  Cuenta temporalmente suspendida
+                </h3>
+                <p className="text-amber-700 mb-3">
+                  Tu cuenta se encuentra desactivada, por lo que no podés crear nuevas reseñas 
+                  y tus reseñas anteriores no están visibles en este momento.
+                </p>
+                <p className="text-amber-600 text-sm">
+                  Para reactivar tu cuenta, contactá a un administrador o solicitá la reactivación desde tu{' '}
+                  <button 
+                    onClick={() => navigate('/profile')} 
+                    className="font-semibold underline hover:text-amber-800"
+                  >
+                    perfil
+                  </button>.
+                </p>
+              </div>
             </div>
-            <button
-              onClick={cargarDatos}
-              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
-            >
-              Reintentar
-            </button>
           </div>
-        )}
+        </div>
+      )}
 
+      {/* Contenido */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Estadísticas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <StatCard 

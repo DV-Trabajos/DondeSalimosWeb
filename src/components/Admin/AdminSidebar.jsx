@@ -205,7 +205,7 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">¿Dónde Salimos?</p>
+                <p className="text-sm font-medium text-gray-700">Dónde Salimos?</p>
                 <p className="text-xs text-gray-400">Panel Administrativo</p>
               </div>
             </div>

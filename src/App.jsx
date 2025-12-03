@@ -1,4 +1,4 @@
-// App.jsx - Configuración completa de rutas (ACTUALIZADO - Sin HomePage, usa Home directamente)
+// App.jsx - Configuración completa de rutas
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LocationProvider } from './context/LocationContext';
@@ -110,8 +110,8 @@ const PublicRoute = ({ children }) => {
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* RUTA PRINCIPAL - HOME (PÚBLICO) */}
-      {/* Home ahora es público y muestra hero + mapa para todos */}
+      {/* RUTA PRINCIPAL*/}
+      {/* Home público y muestra hero + mapa para todos */}
       <Route path="/" element={<Home />} />
       
       {/* RUTA DE LOGIN */}

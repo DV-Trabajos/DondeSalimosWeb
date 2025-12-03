@@ -1,4 +1,4 @@
-// ToastContainer.jsx - Contenedor de notificaciones toast - Muestra notificaciones temporales en esquina
+// ToastContainer.jsx - Contenedor de notificaciones toast
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { useNotification } from '../../context/NotificationContext';
 
@@ -42,7 +42,7 @@ const ToastContainer = () => {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-[9999] space-y-3 max-w-sm">
+    <div className="fixed bottom-4 right-4 z-[10002] space-y-3 max-w-sm">
       {toasts.map((toast) => {
         const style = getToastStyle(toast.type);
         
@@ -67,7 +67,6 @@ const ToastContainer = () => {
         );
       })}
 
-      {/* Estilos de animación */}
       <style jsx>{`
         @keyframes slideIn {
           from {

@@ -41,8 +41,7 @@ const AdminLayout = ({
     'reservas': 'Reservas',
     'reportes': 'Reportes',
     'roles': 'Roles',
-    'tipos-comercio': 'Tipos de Comercio',
-    'configuracion': 'Configuración'    
+    'tipos-comercio': 'Tipos de Comercio',   
   };
 
   // Construir breadcrumbs
@@ -110,7 +109,7 @@ const AdminLayout = ({
                       {/* Header del dropdown */}
                       <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
                         <p className="font-semibold text-gray-900">{displayName}</p>
-                        <p className="text-xs text-gray-500">{user?.correo || 'admin@dondesalimos.com'}</p>
+                        <p className="text-xs text-gray-500">{user?.correo || 'dondesalimosad@gmail.com'}</p>
                       </div>
                       
                       <div className="py-1">

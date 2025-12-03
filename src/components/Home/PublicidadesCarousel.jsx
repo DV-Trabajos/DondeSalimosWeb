@@ -188,7 +188,7 @@ const PublicidadesCarousel = ({ onVerEnMapa }) => {
               onClick={() => handleVerEnMapa(current)}
               className="self-start bg-white text-purple-900 px-6 py-2 rounded-full font-semibold text-sm hover:bg-purple-100 transition-colors shadow-lg"
             >
-              Ver publicidad
+              Ver Publicidad
             </button>
           </div>
         </div>

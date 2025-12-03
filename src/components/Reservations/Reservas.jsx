@@ -150,7 +150,7 @@ const Reservas = () => {
       await cargarMisReservas();
       setShowCancelModal(false);
       setSelectedReserva(null);
-    } catch (error) {
+    } catch (err) {
       alert('Error al cancelar la reserva. Intenta nuevamente.');
     }
   };
@@ -232,197 +232,149 @@ const Reservas = () => {
               </h1>
               <p className="text-gray-300">
                 {activeTab === 'mis-reservas' 
-                  ? 'Consultá y gestioná todas tus reservas en un solo lugar'
-                  : 'Administrá las reservas de tus comercios'}
+                  ? 'Administrá todas tus reservas en un solo lugar'
+                  : 'Gestioná las reservas de tus comercios'
+                }
               </p>
             </div>
-            
-            {/* Botón Exportar */}
-            <button
-              onClick={exportarReservas}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-xl hover:bg-white/20 transition-all font-medium"
-            >
-              <Download className="w-5 h-5" />
-              Exportar
-            </button>
-          </div>
-        </div>
 
-        {/* Wave */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="w-full h-8">
-            <path d="M0 60L60 52C120 44 240 28 360 22C480 16 600 20 720 24C840 28 960 32 1080 34C1200 36 1320 36 1380 36L1440 36V60H0Z" fill="#f9fafb"/>
-          </svg>
+            {(isBarOwner || isAdmin) && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setActiveTab('mis-reservas')}
+                  className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    activeTab === 'mis-reservas'
+                      ? 'bg-white text-purple-900'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  Mis Reservas
+                </button>
+                <button
+                  onClick={() => setActiveTab('reservas-recibidas')}
+                  className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    activeTab === 'reservas-recibidas'
+                      ? 'bg-white text-purple-900'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  Reservas Recibidas
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Tabs para dueños de comercio */}
-        {(isBarOwner || isAdmin) && (
-          <div className="flex gap-2 mb-6 p-1.5 bg-white rounded-2xl shadow-sm border border-gray-100 w-fit">
-            <button
-              onClick={() => setActiveTab('mis-reservas')}
-              className={`
-                flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-200
-                ${activeTab === 'mis-reservas'
-                  ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
-                  : 'text-gray-600 hover:bg-gray-100'
-                }
-              `}
-            >
-              <Calendar className="w-4 h-4" />
-              Mis Reservas
-            </button>
-            <button
-              onClick={() => setActiveTab('recibidas')}
-              className={`
-                flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-200
-                ${activeTab === 'recibidas'
-                  ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
-                  : 'text-gray-600 hover:bg-gray-100'
-                }
-              `}
-            >
-              <Users className="w-4 h-4" />
-              Reservas Recibidas
-            </button>
+      {/* Alerta de cuenta suspendida */}
+      {user && user.estado === false && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-amber-800 mb-1">
+                  Cuenta temporalmente suspendida
+                </h3>
+                <p className="text-amber-700 mb-3">
+                  Tu cuenta se encuentra desactivada, por lo que no podés realizar nuevas reservas 
+                  y tus reservas anteriores no están visibles en este momento.
+                </p>
+                <p className="text-amber-600 text-sm">
+                  Para reactivar tu cuenta, contactá a un administrador o solicitá la reactivación desde tu{' '}
+                  <button 
+                    onClick={() => navigate('/profile')} 
+                    className="font-semibold underline hover:text-amber-800"
+                  >
+                    perfil
+                  </button>.
+                </p>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Contenido según tab activo */}
+      {/* Contenido principal */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'mis-reservas' ? (
           <>
             {/* Estadísticas */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <StatCard 
-                icon={CalendarDays}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <StatCard
+                icon={Calendar}
                 label="Total"
                 value={estadisticasMisReservas.total}
-                color="text-blue-600"
-                bgColor="bg-blue-100"
-                borderColor="border-blue-100"
-                iconBg="bg-blue-50"
+                color="text-gray-700"
+                bgColor="bg-gray-100"
+                borderColor="border-gray-200"
+                iconBg="bg-gray-100"
               />
-              <StatCard 
+              <StatCard
                 icon={Clock}
                 label="Pendientes"
                 value={estadisticasMisReservas.pendientes}
                 color="text-amber-600"
                 bgColor="bg-amber-100"
-                borderColor="border-amber-100"
-                iconBg="bg-amber-50"
+                borderColor="border-amber-200"
+                iconBg="bg-amber-100"
               />
-              <StatCard 
+              <StatCard
                 icon={CheckCircle}
                 label="Confirmadas"
                 value={estadisticasMisReservas.confirmadas}
                 color="text-emerald-600"
                 bgColor="bg-emerald-100"
-                borderColor="border-emerald-100"
-                iconBg="bg-emerald-50"
+                borderColor="border-emerald-200"
+                iconBg="bg-emerald-100"
               />
-              <StatCard 
+              <StatCard
                 icon={XCircle}
                 label="Canceladas"
                 value={estadisticasMisReservas.canceladas}
-                color="text-red-500"
+                color="text-red-600"
                 bgColor="bg-red-100"
-                borderColor="border-red-100"
-                iconBg="bg-red-50"
+                borderColor="border-red-200"
+                iconBg="bg-red-100"
               />
             </div>
 
-            {/* Barra de búsqueda y filtros */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                {/* Búsqueda */}
-                <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nombre, comercio..."
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                  />
-                </div>
-                
-                {/* Filtros rápidos */}
-                <div className="flex gap-2 flex-wrap">
-                  <select
-                    value={filters.estado}
-                    onChange={(e) => setFilters({ ...filters, estado: e.target.value })}
-                    className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-gray-700"
-                  >
-                    <option value="todos">Todos los estados</option>
-                    <option value="confirmadas">Confirmadas</option>
-                    <option value="pendientes">Pendientes</option>
-                    <option value="canceladas">Canceladas</option>
-                  </select>
-                  
-                  <select
-                    value={filters.periodo}
-                    onChange={(e) => setFilters({ ...filters, periodo: e.target.value })}
-                    className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-gray-700"
-                  >
-                    <option value="todos">Todos los períodos</option>
-                    <option value="hoy">Hoy</option>
-                    <option value="proximas">Próximas</option>
-                    <option value="pasadas">Pasadas</option>
-                  </select>
-                </div>
+            {/* Filtros */}
+            <ReservasFilters
+              onFilterChange={handleFilterChange}
+              activeFilters={filters}
+            />
+
+            {/* Botón exportar */}
+            {reservasFiltradas.length > 0 && (
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={exportarReservas}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportar CSV
+                </button>
               </div>
+            )}
 
-              {/* Filtros activos */}
-              {(filters.search || filters.estado !== 'todos' || filters.periodo !== 'todos') && (
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <span className="text-sm text-gray-500">Filtros activos:</span>
-                  <div className="flex gap-2 flex-wrap">
-                    {filters.search && (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
-                        Búsqueda: "{filters.search}"
-                        <button onClick={() => setFilters({ ...filters, search: '' })} className="hover:text-purple-900">×</button>
-                      </span>
-                    )}
-                    {filters.estado !== 'todos' && (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
-                        Estado: {filters.estado}
-                        <button onClick={() => setFilters({ ...filters, estado: 'todos' })} className="hover:text-purple-900">×</button>
-                      </span>
-                    )}
-                    {filters.periodo !== 'todos' && (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
-                        Período: {filters.periodo}
-                        <button onClick={() => setFilters({ ...filters, periodo: 'todos' })} className="hover:text-purple-900">×</button>
-                      </span>
-                    )}
-                  </div>
-                  <button 
-                    onClick={() => setFilters({ search: '', estado: 'todos', periodo: 'todos', comercio: 'todos' })}
-                    className="ml-auto text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    Limpiar todo
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Lista de Mis Reservas */}
+            {/* Loading */}
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <div className="text-center">
                   <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-gray-600">Cargando tus reservas...</p>
+                  <p className="text-gray-600">Cargando reservas...</p>
                 </div>
               </div>
             ) : error ? (
-              <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-8 text-center">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
                 <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-red-900 mb-2">Error</h3>
-                <p className="text-red-700 mb-4">{error}</p>
-                <button
+                <p className="text-red-800">{error}</p>
+                <button 
                   onClick={cargarMisReservas}
-                  className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-medium"
+                  className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
                 >
                   Reintentar
                 </button>
@@ -436,14 +388,14 @@ const Reservas = () => {
                   No tenés reservas aún
                 </h3>
                 <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Comenzá a explorar lugares increíbles y hacé tu primera reserva
+                  Explorá los comercios disponibles y hacé tu primera reserva
                 </p>
                 <button
                   onClick={() => navigate('/')}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:opacity-90 transition font-medium shadow-lg shadow-purple-500/25"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition font-semibold"
                 >
-                  Explorar lugares
-                  <ArrowRight className="w-5 h-5" />
+                  <Sparkles className="w-5 h-5" />
+                  Explorar comercios
                 </button>
               </div>
             ) : reservasFiltradas.length === 0 ? (

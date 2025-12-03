@@ -1,4 +1,4 @@
-// ReservaModal.jsx - Modal de reserva
+// ReservaModal.jsx - Modal de reserva con notificaciones toast
 import { useState, useEffect, useCallback } from 'react';
 import { 
   X, Calendar, Clock, Users, AlertCircle, CheckCircle, 
@@ -6,9 +6,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { createReserva } from '../../services/reservasService';
+import { useNotification } from '../../hooks/useNotification';
 
 const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
   const { user } = useAuth();
+  const { success, error: showError } = useNotification();
   
   const [formData, setFormData] = useState({
     fecha: '',
@@ -18,9 +20,7 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
   
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
-  // Cerrar con tecla de ESC
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape' && !isLoading) {
       handleClose();
@@ -46,10 +46,8 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
       cantidadPersonas: 1,
     });
     setErrors({});
-    setSuccessMessage('');
   };
 
-  // UTILIDADES DE HORARIO
   const parseTimeToMinutes = (timeStr) => {
     if (!timeStr) return null;
     const parts = timeStr.split(':');
@@ -101,7 +99,6 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
     return { apertura, cierre, isNight: false };
   };
   
-  // VALIDACIONES
   const getMinDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -141,8 +138,10 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
     }
 
     if (formData.fecha && formData.hora) {
-      const selectedDate = new Date(`${formData.fecha}T${formData.hora}`);
+      const localDateStr = `${formData.fecha}T${formData.hora}`;
+      const selectedDate = new Date(localDateStr);
       const now = new Date();
+      
       if (selectedDate < now) {
         newErrors.fecha = 'No podés reservar en fechas pasadas';
       }
@@ -158,20 +157,10 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
       [field]: value,
     }));
     
-    // Limpiar error del campo específico
     if (errors[field]) {
       setErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[field];
-        return newErrors;
-      });
-    }
-    
-    // También limpiar el error general si existe
-    if (errors.submit) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.submit;
         return newErrors;
       });
     }
@@ -188,17 +177,22 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
 
     setIsLoading(true);
 
     try {
-      const fechaReserva = new Date(`${formData.fecha}T${formData.hora}`);
+      // Construir fecha en zona horaria LOCAL del usuario
+      const localDateStr = `${formData.fecha}T${formData.hora}`;
+      const localDate = new Date(localDateStr);
+      const fechaReservaISO = localDate.toISOString();
 
       const reservaData = {
         iD_Usuario: user.iD_Usuario,
         iD_Comercio: comercio.iD_Comercio,
-        fechaReserva: fechaReserva.toISOString(),
+        fechaReserva: fechaReservaISO,
         tiempoTolerancia: '00:15:00',
         comensales: parseInt(formData.cantidadPersonas),
         estado: false,
@@ -208,16 +202,12 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
 
       await createReserva(reservaData);
 
-      setSuccessMessage('¡Reserva creada exitosamente!');
-      
-      setTimeout(() => {
-        onSuccess && onSuccess();
-        handleClose();
-      }, 2000);
+      success('¡Reserva creada exitosamente! Está pendiente de aprobación.', 5000);
+
+      handleClose();
+      onSuccess && onSuccess();
 
     } catch (error) {
-      
-      // Extraer el mensaje de error de forma más robusta
       let errorMessage = '';
       
       if (typeof error.response?.data === 'string') {
@@ -232,26 +222,23 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
         errorMessage = 'Error al crear la reserva';
       }
 
-      // Determinar mensaje amigable
       let userMessage = '';
       
       if (errorMessage.toLowerCase().includes('inactiv') || 
           errorMessage.toLowerCase().includes('desactivad')) {
-        userMessage = '🚫 Tu cuenta está desactivada. Por favor, contactá al administrador para reactivarla.';
+        userMessage = 'Tu cuenta está desactivada. Contactá al administrador para reactivarla.';
       } else if (errorMessage.toLowerCase().includes('pendiente')) {
-        userMessage = '⏳ Ya tenés una reserva pendiente de aprobación para este comercio en esta fecha.';
+        userMessage = 'Ya tenés una reserva pendiente de aprobación para este comercio en esta fecha.';
       } else if (errorMessage.toLowerCase().includes('aprobada')) {
-        userMessage = '✅ Ya tenés una reserva confirmada para este comercio en esta fecha.';
+        userMessage = 'Ya tenés una reserva confirmada para este comercio en esta fecha.';
       } else if (errorMessage.toLowerCase().includes('comercio') && 
                  errorMessage.toLowerCase().includes('disponible')) {
-        userMessage = '🏪 Este comercio no está disponible para reservas en este momento.';
+        userMessage = 'Este comercio no está disponible para reservas en este momento.';
       } else {
-        // Mostrar el mensaje original si no matchea con ninguno de los casos
         userMessage = errorMessage;
       }
 
-      // Setear el error en el estado
-      setErrors({ submit: userMessage });
+      showError(userMessage, 6000);
 
     } finally {
       setIsLoading(false);
@@ -273,27 +260,22 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-[10001] overflow-y-auto">
-      {/* Overlay */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={handleClose}
       />
       
-      {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div 
           className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
           <div className="relative bg-gradient-to-r from-pink-500 via-purple-500 to-purple-600 p-6 text-white overflow-hidden">
-            {/* Decoraciones */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
               <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
             </div>
             
-            {/* Botón cerrar */}
             <button
               type="button"
               onClick={handleClose}
@@ -318,190 +300,160 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
             </div>
           </div>
 
-          {/* Contenido */}
           <div className="p-6 overflow-y-auto max-h-[calc(90vh-12rem)]">
-            {successMessage ? (
-              // Mensaje de éxito
-              <div className="text-center py-8">
-                <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/30">
-                  <CheckCircle className="w-10 h-10 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">¡Listo!</h3>
-                <p className="text-gray-600 mb-2">{successMessage}</p>
-                <p className="text-sm text-gray-500">
-                  Está pendiente de aprobación por el comercio
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Error general */}
-                {errors.submit && (
-                  <div className="p-4 bg-red-100 border-2 border-red-400 rounded-xl shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm font-medium text-red-800 leading-relaxed">{errors.submit}</p>
-                    </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {horarioInfo && (
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                  <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Info className="w-5 h-5 text-purple-600" />
                   </div>
-                )}
-
-                {/* Info de horario */}
-                {horarioInfo && (
-                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
-                    <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Info className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-purple-900">
-                        Horario: {horarioInfo.apertura} a {horarioInfo.cierre}
-                        {horarioInfo.isNight && ' (día siguiente)'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Campo Fecha */}
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    <Calendar className="w-4 h-4 text-purple-500" />
-                    Fecha
-                    <span className="text-pink-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.fecha}
-                    onChange={(e) => handleChange('fecha', e.target.value)}
-                    min={getMinDate()}
-                    max={getMaxDate()}
-                    className={`
-                      w-full px-4 py-3 bg-gray-50 border-2 rounded-xl transition-all outline-none
-                      ${errors.fecha 
-                        ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10' 
-                        : 'border-gray-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10'
-                      }
-                    `}
-                  />
-                  {errors.fecha && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      {errors.fecha}
+                  <div>
+                    <p className="text-sm font-medium text-purple-900">
+                      Horario: {horarioInfo.apertura} a {horarioInfo.cierre}
+                      {horarioInfo.isNight && ' (día siguiente)'}
                     </p>
-                  )}
-                </div>
-
-                {/* Campo Hora */}
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    <Clock className="w-4 h-4 text-purple-500" />
-                    Hora
-                    <span className="text-pink-500">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.hora}
-                    onChange={(e) => handleChange('hora', e.target.value)}
-                    className={`
-                      w-full px-4 py-3 bg-gray-50 border-2 rounded-xl transition-all outline-none
-                      ${errors.hora 
-                        ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10' 
-                        : 'border-gray-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10'
-                      }
-                    `}
-                  />
-                  {errors.hora && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      {errors.hora}
-                    </p>
-                  )}
-                </div>
-
-                {/* Campo Cantidad de Personas */}
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    <Users className="w-4 h-4 text-purple-500" />
-                    Cantidad de personas
-                    <span className="text-pink-500">*</span>
-                  </label>
-                  
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => adjustPersonas(-1)}
-                      disabled={formData.cantidadPersonas <= 1}
-                      className="w-12 h-12 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-gray-100 rounded-xl flex items-center justify-center transition-colors"
-                    >
-                      <Minus className="w-5 h-5 text-gray-600" />
-                    </button>
-                    
-                    <div className="flex-1">
-                      <input
-                        type="number"
-                        value={formData.cantidadPersonas}
-                        onChange={(e) => handleChange('cantidadPersonas', parseInt(e.target.value) || 1)}
-                        min="1"
-                        max={capacidadMaxima}
-                        className={`
-                          w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-center text-lg font-semibold transition-all outline-none
-                          ${errors.cantidadPersonas 
-                            ? 'border-red-300 focus:border-red-500' 
-                            : 'border-gray-200 focus:border-purple-500'
-                          }
-                        `}
-                      />
-                    </div>
-                    
-                    <button
-                      type="button"
-                      onClick={() => adjustPersonas(1)}
-                      disabled={formData.cantidadPersonas >= capacidadMaxima}
-                      className="w-12 h-12 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-gray-100 rounded-xl flex items-center justify-center transition-colors"
-                    >
-                      <Plus className="w-5 h-5 text-gray-600" />
-                    </button>
                   </div>
-                  
-                  <p className="mt-2 text-xs text-gray-500">
-                    Capacidad máxima: {capacidadMaxima} personas
+                </div>
+              )}
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Calendar className="w-4 h-4 text-purple-500" />
+                  Fecha
+                  <span className="text-pink-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.fecha}
+                  onChange={(e) => handleChange('fecha', e.target.value)}
+                  min={getMinDate()}
+                  max={getMaxDate()}
+                  className={`
+                    w-full px-4 py-3 bg-gray-50 border-2 rounded-xl transition-all outline-none
+                    ${errors.fecha 
+                      ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10' 
+                      : 'border-gray-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10'
+                    }
+                  `}
+                />
+                {errors.fecha && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.fecha}
                   </p>
-                  
-                  {errors.cantidadPersonas && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      {errors.cantidadPersonas}
-                    </p>
-                  )}
-                </div>
+                )}
+              </div>
 
-                {/* Botones */}
-                <div className="flex gap-3 pt-2">
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Clock className="w-4 h-4 text-purple-500" />
+                  Hora
+                  <span className="text-pink-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={formData.hora}
+                  onChange={(e) => handleChange('hora', e.target.value)}
+                  className={`
+                    w-full px-4 py-3 bg-gray-50 border-2 rounded-xl transition-all outline-none
+                    ${errors.hora 
+                      ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10' 
+                      : 'border-gray-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10'
+                    }
+                  `}
+                />
+                {errors.hora && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.hora}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Users className="w-4 h-4 text-purple-500" />
+                  Cantidad de personas
+                  <span className="text-pink-500">*</span>
+                </label>
+                
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleClose}
-                    disabled={isLoading}
-                    className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors disabled:opacity-50"
+                    onClick={() => adjustPersonas(-1)}
+                    disabled={formData.cantidadPersonas <= 1}
+                    className="w-12 h-12 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-gray-100 rounded-xl flex items-center justify-center transition-colors"
                   >
-                    Cancelar
+                    <Minus className="w-5 h-5 text-gray-600" />
                   </button>
+                  
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      value={formData.cantidadPersonas}
+                      onChange={(e) => handleChange('cantidadPersonas', parseInt(e.target.value) || 1)}
+                      min="1"
+                      max={capacidadMaxima}
+                      className={`
+                        w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-center text-lg font-semibold transition-all outline-none
+                        ${errors.cantidadPersonas 
+                          ? 'border-red-300 focus:border-red-500' 
+                          : 'border-gray-200 focus:border-purple-500'
+                        }
+                      `}
+                    />
+                  </div>
+                  
                   <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={() => adjustPersonas(1)}
+                    disabled={formData.cantidadPersonas >= capacidadMaxima}
+                    className="w-12 h-12 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:hover:bg-gray-100 rounded-xl flex items-center justify-center transition-colors"
                   >
-                    {isLoading ? (
-                      <>
-                        <Loader className="w-5 h-5 animate-spin" />
-                        Reservando...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-5 h-5" />
-                        Confirmar Reserva
-                      </>
-                    )}
+                    <Plus className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>
-              </form>
-            )}
+                
+                <p className="mt-2 text-xs text-gray-500">
+                  Capacidad máxima: {capacidadMaxima} personas
+                </p>
+                
+                {errors.cantidadPersonas && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.cantidadPersonas}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={isLoading}
+                  className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Reservando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      Confirmar Reserva
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
