@@ -560,11 +560,14 @@ const AdminUsuarios = () => {
                   onChange={(e) => setEditData({ iD_RolUsuario: parseInt(e.target.value) })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
                 >
-                  {roles.map(rol => (
-                    <option key={rol.iD_RolUsuario} value={rol.iD_RolUsuario}>
-                      {rol.descripcion}
-                    </option>
-                  ))}
+                  {roles
+                    .filter(rol => rol.estado === true) // Filtrar solo roles activos
+                    .map(rol => (
+                      <option key={rol.iD_RolUsuario} value={rol.iD_RolUsuario}>
+                        {rol.descripcion}
+                      </option>
+                    ))
+                  }
                 </select>
               </div>
 

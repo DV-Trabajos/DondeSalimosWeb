@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { GOOGLE_MAPS_API_KEY } from '../../utils/constants';
+import { getAllTiposComercio } from '../../services/tiposComercioService';
 import { MapPin, Navigation, Loader } from 'lucide-react';
 
 const mapContainerStyle = {
@@ -11,8 +12,8 @@ const mapContainerStyle = {
 
 // Obelisco
 const defaultCenter = {
-  lat: -34.60367,
-  lng: -58.38162,
+  lat: -27.367,
+  lng: -55.883,
 };
 
 const mapOptions = {
@@ -38,6 +39,27 @@ const mapOptions = {
   ],
 };
 
+// Obtener emoji según tipo de comercio
+const getEmojiForTipo = (tipoId, tipoDescripcion) => {
+  if (tipoDescripcion) {
+    const desc = tipoDescripcion.toLowerCase();
+    if (desc.includes('bar')) return '🍺';
+    if (desc.includes('boliche') || desc.includes('disco')) return '🪩';
+    if (desc.includes('restaurant')) return '🍽️';
+    if (desc.includes('cafe') || desc.includes('café')) return '☕';
+    if (desc.includes('pub')) return '🍻';
+  }
+  
+  switch (tipoId) {
+    case 1: return '🍺';
+    case 2: return '🪩';
+    case 3: return '🍽️';
+    case 4: return '☕';
+    case 5: return '🍻';
+    default: return '📍';
+  }
+};
+
 const GoogleMapView = ({
   places = [],
   userLocation = null,
@@ -49,24 +71,47 @@ const GoogleMapView = ({
   const [map, setMap] = useState(null);
   const [hoveredPlace, setHoveredPlace] = useState(null);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [tiposComercioActivos, setTiposComercioActivos] = useState([]);
   const mapRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   });
 
+  // Cargar tipos de comercio activos desde la API
+  useEffect(() => {
+    const loadTiposComercio = async () => {
+      try {
+        const tipos = await getAllTiposComercio();
+        const activos = tipos
+          .filter(tipo => tipo.estado === true || tipo.Estado === true)
+          .map(tipo => ({
+            id: tipo.iD_TipoComercio || tipo.ID_TipoComercio,
+            nombre: tipo.descripcion || tipo.Descripcion,
+            emoji: getEmojiForTipo(tipo.iD_TipoComercio || tipo.ID_TipoComercio, tipo.descripcion || tipo.Descripcion),
+          }));
+        setTiposComercioActivos(activos);
+      } catch (error) {
+        setTiposComercioActivos([
+          { id: 1, nombre: 'Bar', emoji: '🍺' },
+          { id: 2, nombre: 'Boliche', emoji: '🪩' },
+        ]);
+      }
+    };
+    loadTiposComercio();
+  }, []);
+
   const onLoad = useCallback((map) => {
     mapRef.current = map;
     setMap(map);
   }, []);
 
-  // ✅ NUEVO: Centrar en ubicación del usuario con zoom apropiado
+  // NUEVO: Centrar en ubicación del usuario con zoom apropiado
   useEffect(() => {
     if (!map || hasInitialized) return;
 
     // Prioridad 1: Si hay ubicación del usuario, centrar ahí con zoom cercano
     if (userLocation && userLocation.latitude && userLocation.longitude) {
-      console.log('📍 Centrando mapa en ubicación del usuario:', userLocation);
       map.setCenter({
         lat: userLocation.latitude,
         lng: userLocation.longitude,
@@ -96,24 +141,6 @@ const GoogleMapView = ({
     setHasInitialized(true);
   }, [map, userLocation, places, hasInitialized]);
 
-  // ❌ ELIMINADO: Ya no recentramos automáticamente cuando cambia la ubicación
-  // El usuario puede navegar libremente por el mapa y usar el botón de centrar si quiere volver
-
-  // Calcular distancia entre dos puntos
-  const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const deg2rad = (deg) => deg * (Math.PI / 180);
-
   const onUnmount = useCallback(() => {
     setMap(null);
     mapRef.current = null;
@@ -131,28 +158,7 @@ const GoogleMapView = ({
     }
   }, [map, userLocation]);
 
-  // ✅ Obtener emoji según tipo de comercio
-  const getEmojiForTipo = (tipoId, tipoDescripcion) => {
-    if (tipoDescripcion) {
-      const desc = tipoDescripcion.toLowerCase();
-      if (desc.includes('bar')) return '🍺';
-      if (desc.includes('boliche') || desc.includes('disco')) return '🪩';
-      if (desc.includes('restaurant')) return '🍽️';
-      if (desc.includes('cafe') || desc.includes('café')) return '☕';
-      if (desc.includes('pub')) return '🍻';
-    }
-    
-    switch (tipoId) {
-      case 1: return '🍺';
-      case 2: return '🪩';
-      case 3: return '🍽️';
-      case 4: return '☕';
-      case 5: return '🍻';
-      default: return '📍';
-    }
-  };
-
-  // ✅ Crear marcador simple y limpio
+  // Crear marcador simple y limpio
   const createEmojiMarker = (emoji, isSelected, isHovered, isLocal) => {
     const size = isSelected ? 52 : isHovered ? 48 : 44;
     const borderColor = isLocal ? '#9333EA' : '#10B981'; // Púrpura para locales, verde para Google
@@ -177,7 +183,7 @@ const GoogleMapView = ({
     };
   };
 
-  // ✅ Obtener icono del marcador
+  // Obtener icono del marcador
   const getMarkerIcon = (place, isSelected, isHovered) => {
     if (!window.google) return null;
 
@@ -209,7 +215,7 @@ const GoogleMapView = ({
           <MapPin className="w-12 h-12 mx-auto mb-2" />
           <p className="font-semibold">Error al cargar el mapa</p>
           <p className="text-sm text-gray-600 mt-1">
-            Verifica tu conexión a internet
+            Revisa tu conexión a internet
           </p>
         </div>
       </div>
@@ -226,9 +232,6 @@ const GoogleMapView = ({
       </div>
     );
   }
-
-  // ❌ ELIMINADO: Ya no usamos center dinámico porque causa recentrado en cada render
-  // El centrado inicial se hace en el useEffect con hasInitialized
 
   return (
     <div className="relative w-full h-[600px] rounded-xl overflow-hidden shadow-lg border border-gray-200">
@@ -305,40 +308,36 @@ const GoogleMapView = ({
         </button>
       )}
 
-      {/* Leyenda */}
-      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-lg text-sm z-10 min-w-[160px]">
-        <p className="text-xs font-bold text-gray-700 mb-3 uppercase tracking-wide">Leyenda</p>
-        
+      {/* Leyendas */}
+      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm p-3 rounded-xl shadow-lg text-sm z-10">
         {/* Tu ubicación */}
         <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
-          <div className="w-4 h-4 rounded-full bg-blue-500 ring-4 ring-blue-200"></div>
+          <div className="w-5 h-5 rounded-full bg-blue-500 ring-3 ring-blue-200"></div>
           <span className="text-gray-700 font-medium">Tu ubicación</span>
         </div>
         
-        {/* Tipos de lugares */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-white border-[3px] border-purple-600 flex items-center justify-center text-base">🍺</div>
-            <span className="text-gray-600">Bar</span>
+        {/* Tipos de comercio activos */}
+        {tiposComercioActivos.length > 0 && (
+          <div className="space-y-2 mb-3 pb-3 border-b border-gray-100">
+            {tiposComercioActivos.map((tipo) => (
+              <div key={tipo.id} className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-white border-[3px] border-purple-600 flex items-center justify-center text-base shadow-sm">
+                  {tipo.emoji}
+                </div>
+                <span className="text-gray-600">{tipo.nombre}</span>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-white border-[3px] border-purple-600 flex items-center justify-center text-base">🪩</div>
-            <span className="text-gray-600">Boliche</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-white border-[3px] border-purple-600 flex items-center justify-center text-base">🍽️</div>
-            <span className="text-gray-600">Restaurante</span>
-          </div>
-        </div>
+        )}
         
-        {/* Diferenciación */}
-        <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+        {/* Diferenciación Locales vs Google */}
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full border-2 border-purple-600"></div>
+            <div className="w-4 h-4 rounded-full border-[3px] border-purple-600 bg-white"></div>
             <span className="text-xs text-gray-500">Locales ({places.filter(p => p.isLocal).length})</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full border-2 border-green-500"></div>
+            <div className="w-4 h-4 rounded-full border-[3px] border-green-500 bg-white"></div>
             <span className="text-xs text-gray-500">Google ({places.filter(p => !p.isLocal).length})</span>
           </div>
         </div>

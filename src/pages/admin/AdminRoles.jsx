@@ -1,11 +1,12 @@
 // AdminRoles.jsx - Gestión de Roles de Usuario
 import { useState, useEffect, useMemo } from 'react';
-import { Shield, Plus, Edit, Trash2, Eye, Users } from 'lucide-react';
+import { Shield, Plus, Edit, Trash2, Users, Power } from 'lucide-react';
 import AdminLayout from '../../components/Admin/AdminLayout';
 import DataTable from '../../components/Admin/DataTable';
 import { TableFilters, ActiveFilters } from '../../components/Admin/TableFilters';
 import ExportMenu from '../../components/Admin/ExportMenu';
 import RolModal, { ROL_MODAL_TYPES } from '../../components/Admin/RolModal';
+import { ConfirmationModal } from '../../components/Modals';
 import { useNotification } from '../../hooks/useNotification';
 import { 
   getAllRoles, 
@@ -36,6 +37,10 @@ const AdminRoles = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState(ROL_MODAL_TYPES.VIEW);
   const [selectedRol, setSelectedRol] = useState(null);
+
+  // ESTADOS DE MODAL DE CONFIRMACIÓN PARA TOGGLE
+  const [showToggleModal, setShowToggleModal] = useState(false);
+  const [toggleRolData, setToggleRolData] = useState(null);
 
   // CARGAR DATOS
   useEffect(() => {
@@ -124,10 +129,8 @@ const AdminRoles = () => {
       return;
     }
 
-    const enUso = isRolEnUso(rolId, usuarios);
-    if (enUso) {
-      const cantidadUsuarios = getUsuariosCount(rolId);
-      warning(`No se puede eliminar el rol "${rol.descripcion}" porque está siendo usado por ${cantidadUsuarios} usuario(s)`);
+    if (isRolEnUso(rolId, usuarios)) {
+      warning('No se puede eliminar un rol que está en uso');
       return;
     }
 
@@ -136,43 +139,66 @@ const AdminRoles = () => {
     setShowModal(true);
   };
 
+  // ABRIR MODAL DE TOGGLE ESTADO
+  const openToggleModal = (rol) => {
+    setToggleRolData(rol);
+    setShowToggleModal(true);
+  };
+
+  // TOGGLE ESTADO DEL ROL
+  const handleToggleEstado = async () => {
+    if (!toggleRolData) return;
+
+    const rolId = toggleRolData.iD_RolUsuario || toggleRolData.ID_RolUsuario;
+    const nuevoEstado = !toggleRolData.estado;
+    const accion = nuevoEstado ? 'activado' : 'desactivado';
+    
+    try {
+      setLoading(true);
+      
+      // Preparar el rol actualizado con el nuevo estado
+      const rolActualizado = {
+        ID_RolUsuario: rolId,
+        Descripcion: toggleRolData.descripcion || toggleRolData.Descripcion,
+        Estado: nuevoEstado,
+        FechaCreacion: toggleRolData.fechaCreacion || toggleRolData.FechaCreacion || new Date().toISOString()
+      };
+      
+      await updateRol(rolId, rolActualizado);
+      success(`Rol ${accion} correctamente`);
+      await loadData();
+      setShowToggleModal(false);
+      setToggleRolData(null);
+    } catch (err) {
+      error(`Error al ${nuevoEstado ? 'activar' : 'desactivar'} el rol`);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setSelectedRol(null);
   };
 
-  // ACCIONES
   const handleSubmit = async (data) => {
     try {
-      switch (modalType) {
-        case ROL_MODAL_TYPES.CREATE:
-          await createRol({ descripcion: data.descripcion });
-          success('Rol creado correctamente');
-          break;
-          
-        case ROL_MODAL_TYPES.EDIT:
-          const rolIdEdit = selectedRol.iD_RolUsuario || selectedRol.ID_RolUsuario;
-          await updateRol(rolIdEdit, {
-            ...selectedRol,
-            descripcion: data.descripcion
-          });
-          success('Rol actualizado correctamente');
-          break;
-          
-        case ROL_MODAL_TYPES.DELETE:
-          const rolIdDelete = data.iD_RolUsuario || data.ID_RolUsuario;
-          await deleteRol(rolIdDelete);
-          success(`Rol "${data.descripcion}" eliminado correctamente`);
-          break;
-          
-        default:
-          break;
+      if (modalType === ROL_MODAL_TYPES.CREATE) {
+        await createRol(data);
+        success('Rol creado correctamente');
+      } else if (modalType === ROL_MODAL_TYPES.EDIT) {
+        await updateRol(selectedRol.iD_RolUsuario || selectedRol.ID_RolUsuario, data);
+        success('Rol actualizado correctamente');
+      } else if (modalType === ROL_MODAL_TYPES.DELETE) {
+        await deleteRol(selectedRol.iD_RolUsuario || selectedRol.ID_RolUsuario);
+        success('Rol eliminado correctamente');
       }
       
       closeModal();
-      loadData();
+      await loadData();
     } catch (err) {
-      error(`Error al ${modalType === ROL_MODAL_TYPES.DELETE ? 'eliminar' : 'guardar'} el rol`);
+      error(`Error al ${modalType === 'create' ? 'crear' : modalType === 'delete' ? 'eliminar' : 'guardar'} el rol`);
     }
   };
 
@@ -200,7 +226,7 @@ const AdminRoles = () => {
           #{row.iD_RolUsuario || row.ID_RolUsuario}
         </span>
       ),
-      width: '10%'
+      width: '8%'
     },
     {
       key: 'descripcion',
@@ -210,7 +236,27 @@ const AdminRoles = () => {
       render: (row) => (
         <span className="font-semibold text-gray-900">{row.descripcion}</span>
       ),
-      width: '30%'
+      width: '25%'
+    },
+    {
+      key: 'estado',
+      header: 'Estado',
+      accessor: (row) => row.estado,
+      sortable: true,
+      render: (row) => {
+        const estaActivo = row.estado;
+        return (
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+            estaActivo 
+              ? 'bg-green-100 text-green-700 border border-green-200' 
+              : 'bg-gray-100 text-gray-700 border border-gray-200'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${estaActivo ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+            {estaActivo ? 'Activo' : 'Inactivo'}
+          </span>
+        );
+      },
+      width: '12%'
     },
     {
       key: 'usuarios',
@@ -226,7 +272,7 @@ const AdminRoles = () => {
           </span>
         );
       },
-      width: '15%'
+      width: '12%'
     },
     {
       key: 'tipo',
@@ -246,7 +292,7 @@ const AdminRoles = () => {
           </span>
         );
       },
-      width: '20%'
+      width: '15%'
     },
     {
       key: 'acciones',
@@ -257,19 +303,27 @@ const AdminRoles = () => {
         const rolId = row.iD_RolUsuario || row.ID_RolUsuario;
         const esRolSistema = isSystemRole(rolId);
         const enUso = isRolEnUso(rolId, usuarios);
+        const estaActivo = row.estado;
         
         return (
           <div className="flex items-center justify-center gap-1">
-            {/* Ver detalle */}
+            {/* Activar/Desactivar */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                openViewModal(row);
+                openToggleModal(row);
               }}
-              className="p-2 rounded-lg transition-colors text-gray-600 hover:bg-gray-100"
-              title="Ver detalle"
+              disabled={esRolSistema}
+              className={`p-2 rounded-lg transition-colors ${
+                esRolSistema
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : estaActivo
+                    ? 'text-green-600 hover:bg-green-50'
+                    : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={esRolSistema ? 'Los roles del sistema no se pueden desactivar' : estaActivo ? 'Desactivar rol' : 'Activar rol'}
             >
-              <Eye className="w-4 h-4" />
+              <Power className="w-4 h-4" />
             </button>
 
             {/* Editar */}
@@ -310,7 +364,7 @@ const AdminRoles = () => {
           </div>
         );
       },
-      width: '15%'
+      width: '13%'
     }
   ];
 
@@ -388,7 +442,7 @@ const AdminRoles = () => {
         onRowClick={openViewModal}
       />
 
-      {/* MODAL UNIFICADO */}
+      {/* MODAL UNIFICADO DE ROL */}
       <RolModal
         isOpen={showModal}
         onClose={closeModal}
@@ -397,6 +451,28 @@ const AdminRoles = () => {
         type={modalType}
         usuariosCount={selectedRol ? getUsuariosCount(selectedRol.iD_RolUsuario || selectedRol.ID_RolUsuario) : 0}
       />
+
+      {/* MODAL DE CONFIRMACIÓN PARA TOGGLE DE ESTADO */}
+      {toggleRolData && (
+        <ConfirmationModal
+          isOpen={showToggleModal}
+          onClose={() => {
+            setShowToggleModal(false);
+            setToggleRolData(null);
+          }}
+          onConfirm={handleToggleEstado}
+          type={toggleRolData.estado ? 'warning' : 'success'}
+          title={toggleRolData.estado ? '¿Desactivar rol?' : '¿Activar rol?'}
+          message={`¿Estás seguro de ${toggleRolData.estado ? 'desactivar' : 'activar'} el rol "${toggleRolData.descripcion}"?`}
+          description={
+            toggleRolData.estado 
+              ? 'Los usuarios con este rol no podrán utilizar sus permisos hasta que se reactive.'
+              : 'Los usuarios con este rol podrán utilizar sus permisos normalmente.'
+          }
+          confirmText={`Sí, ${toggleRolData.estado ? 'desactivar' : 'activar'}`}
+          cancelText="Cancelar"
+        />
+      )}
     </AdminLayout>
   );
 };

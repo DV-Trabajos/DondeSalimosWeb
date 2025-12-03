@@ -163,7 +163,7 @@ const PublicidadViewerModal = ({ isOpen, publicidad, onClose, onViewOnMap }) => 
             className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-full flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl"
           >
             <MapPin className="w-5 h-5" />
-            <span>Ver en el mapa</span>
+            <span>Ver comercio</span>
           </button>
         </div>
 

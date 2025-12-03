@@ -22,7 +22,7 @@ const Login = () => {
   const returnAction = location.state?.action || null;
   const returnComercio = location.state?.comercio || null;
 
-  // PREVENIR RECARGA AL PRESIONAR ENTER
+  // PREVENIR RECARGA AL APRETAR ENTER
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Enter') {
@@ -138,10 +138,10 @@ const Login = () => {
             <Link to="/" className="inline-flex items-center gap-3 mb-8 group">
               <img 
                 src="/logo.png" 
-                alt="¿Dónde Salimos?" 
+                alt="Dónde Salimos?" 
                 className="w-12 h-12 rounded-xl shadow-lg shadow-purple-500/30 group-hover:scale-105 transition object-contain"
               />
-              <span className="text-2xl font-bold text-white">¿Dónde Salimos?</span>
+              <span className="text-2xl font-bold text-white">Dónde Salimos?</span>
             </Link>
 
             <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight">
@@ -199,11 +199,11 @@ const Login = () => {
                   <Link to="/" className="inline-flex items-center gap-2">
                     <img 
                       src="/logo.png" 
-                      alt="¿Dónde Salimos?" 
+                      alt="Dónde Salimos?" 
                       className="w-10 h-10 rounded-xl object-contain"
                     />
                     <span className="text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
-                      ¿Dónde Salimos?
+                      Dónde Salimos?
                     </span>
                   </Link>
                 </div>

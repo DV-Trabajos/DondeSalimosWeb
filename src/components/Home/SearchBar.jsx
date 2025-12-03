@@ -1,4 +1,4 @@
-// SearchBar.jsx - ACTUALIZADO: Tipos de comercio desde la API
+// SearchBar.jsx - Barra de búsqueda con filtros
 import { useState, useEffect } from 'react';
 import { Search, Filter, X, Music, ChevronDown, ChevronUp, Loader } from 'lucide-react';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -49,6 +49,7 @@ const SearchBar = ({
         ...tiposActivos
       ]);
     } catch (error) {
+      console.error('Error cargando tipos de comercio:', error);
       // Fallback a tipos por defecto si falla la API
       setTiposComercio([
         { id: 'all', label: 'Todos', icon: '🏪' },
@@ -244,25 +245,29 @@ const SearchBar = ({
 
             {showGenres && (
               <div className="mt-4 space-y-4">
-                {Object.entries(GENEROS_POR_CATEGORIA).map(([categoria, generos]) => (
+                {Object.entries(GENEROS_POR_CATEGORIA).map(([categoria, generosIds]) => (
                   <div key={categoria}>
                     <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">
                       {categoria}
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {generos.map((genero) => (
-                        <button
-                          key={genero.id}
-                          onClick={() => toggleGenre(genero.id)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                            selectedGenres.includes(genero.id)
-                              ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          {genero.label}
-                        </button>
-                      ))}
+                      {/* generosIds es un array de strings (IDs) */}
+                      {generosIds.map((generoId) => {
+                        const generoObj = GENEROS_MUSICALES.find(g => g.id === generoId);
+                        return (
+                          <button
+                            key={generoId}
+                            onClick={() => toggleGenre(generoId)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                              selectedGenres.includes(generoId)
+                                ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {generoObj?.label || generoId}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

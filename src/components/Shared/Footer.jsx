@@ -54,10 +54,10 @@ const Footer = () => {
   ];
 
   const categories = [
-    { name: 'Bares', path: '/?tipo=1' },
-    { name: 'Boliches', path: '/?tipo=2' },
-    { name: 'Con música en vivo', path: '/?genero=rock' },
-    { name: 'Electrónica', path: '/?genero=techno' },
+    { name: 'Bares', path: '/?tipoComercio=1' },
+    { name: 'Boliches', path: '/?tipoComercio=2' },
+    { name: 'Con música en vivo', path: '/?generoMusical=rock' },
+    { name: 'Electrónica', path: '/?generoMusical=techno' },
   ];
 
   return (
@@ -159,14 +159,14 @@ const Footer = () => {
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-pink-500 flex-shrink-0" />
-                <a href="tel:+5493764000000" className="text-gray-400 hover:text-pink-400 transition text-sm">
-                  +54 9 376 400-0000
+                <a href="tel:+5491155631987" className="text-gray-400 hover:text-pink-400 transition text-sm">
+                  +54 9 11 5563-1987
                 </a>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-pink-500 flex-shrink-0" />
-                <a href="mailto:info@dondesalimos.com" className="text-gray-400 hover:text-pink-400 transition text-sm">
-                  info@dondesalimos.com
+                <a href="mailto:dondesalimosad@gmail.com" className="text-gray-400 hover:text-pink-400 transition text-sm">
+                  dondesalimosad@gmail.com
                 </a>
               </li>
               <li className="flex items-start gap-3">

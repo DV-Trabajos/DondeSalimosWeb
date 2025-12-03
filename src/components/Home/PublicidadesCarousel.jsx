@@ -188,7 +188,7 @@ const PublicidadesCarousel = ({ onVerEnMapa }) => {
               onClick={() => handleVerEnMapa(current)}
               className="self-start bg-white text-purple-900 px-6 py-2 rounded-full font-semibold text-sm hover:bg-purple-100 transition-colors shadow-lg"
             >
-              Ver en el mapa
+              Ver publicidad
             </button>
           </div>
         </div>
@@ -305,7 +305,7 @@ const PublicidadesCarousel = ({ onVerEnMapa }) => {
                   onClick={() => handleVerEnMapa(selectedPublicidad)}
                   className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity"
                 >
-                  Ver en el mapa
+                  Ver Publicidad
                 </button>
                 <button
                   onClick={() => setSelectedPublicidad(null)}

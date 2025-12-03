@@ -14,6 +14,7 @@ import PublicidadesCarousel from '../components/Home/PublicidadesCarousel';
 import ReservaModal from '../components/Reservations/ReservaModal';
 import ReviewModal from '../components/Reviews/ReviewModal';
 import WelcomeHero from '../components/Home/WelcomeHero';
+import HeroFloatingCards from '../components/Home/HeroFloatingCards';
 import {
   getAllComercios,
   filterApprovedComercios,
@@ -163,7 +164,7 @@ const Home = () => {
         return { ...comercio, latitud: coords.lat, longitud: coords.lng, isLocal: true };
       }
     } catch (geoError) {
-      console.warn(`⚠️ ${comercio.nombre}: Error geocodificando`);
+      console.warn(`${comercio.nombre}: Error geocodificando`);
     }
 
     const offsetLat = (Math.random() - 0.5) * 0.02;
@@ -336,91 +337,7 @@ const Home = () => {
       {isAuthenticated ? (
         <WelcomeHero user={user} placesCount={filteredPlaces.length} />
       ) : (
-        // Hero completo para visitantes
-        <section className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white">
-          {/* Background decorations */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute -top-40 -right-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-          </div>
-
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div className="text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-sm font-medium mb-6">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                  +500 lugares disponibles
-                </div>
-                
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                  Dónde 
-                  <span className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent"> salimos? </span>
-                </h1>
-                
-                <p className="text-lg sm:text-xl text-gray-300 mb-8 max-w-lg mx-auto lg:mx-0">
-                  Descubrí los mejores bares y boliches de tu ciudad. 
-                  Reservá tu lugar y disfrutá de la mejor noche.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <Link
-                    to="/login"
-                    className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-600 rounded-xl font-semibold text-lg hover:opacity-90 transition shadow-lg"
-                  >
-                    Empezar ahora
-                    <ArrowRight className="w-5 h-5" />
-                  </Link>
-                  <a
-                    href="#mapa"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      document.querySelector('#mapa')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 backdrop-blur-sm rounded-xl font-semibold text-lg hover:bg-white/20 transition border border-white/20"
-                  >
-                    <Play className="w-5 h-5" />
-                    Ver lugares
-                  </a>
-                </div>
-              </div>
-
-              {/* Stats cards */}
-              <div className="hidden lg:flex flex-col gap-4">
-                <div className="grid grid-cols-3 gap-4">
-                  {stats.map((stat, index) => (
-                    <div key={index} className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center border border-white/10">
-                      <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-                      <div className="text-gray-400 text-sm">{stat.label}</div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Preview card */}
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center">
-                      <MapPin className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-white font-semibold">Cerca de vos</span>
-                        <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">En vivo</span>
-                      </div>
-                      <p className="text-gray-400 text-sm">Encontrá lugares increíbles en tu zona</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Wave decoration */}
-          <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-            <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="w-full h-16 sm:h-20">
-              <path d="M0 80L60 70C120 60 240 40 360 30C480 20 600 20 720 25C840 30 960 40 1080 45C1200 50 1320 50 1380 50L1440 50V80H1380C1320 80 1200 80 1080 80C960 80 840 80 720 80C600 80 480 80 360 80C240 80 120 80 60 80H0Z" fill="white"/>
-            </svg>
-          </div>
-        </section>
+        <HeroFloatingCards />
       )}
 
       {/* Sección del Mapa */}
@@ -659,8 +576,8 @@ const Home = () => {
                     </div>
                     <div>
                       <p className="text-gray-500 text-sm">Email</p>
-                      <a href="mailto:info@dondesalimos.com" className="text-gray-900 font-medium hover:text-pink-600 transition">
-                        info@dondesalimos.com
+                      <a href="mailto:dondesalimosad@gmail.com" className="text-gray-900 font-medium hover:text-pink-600 transition">
+                        dondesalimosad@gmail.com
                       </a>
                     </div>
                   </div>

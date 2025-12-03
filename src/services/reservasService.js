@@ -24,17 +24,23 @@ const mapReservaFromAPI = (reserva) => {
 
 // Convierte una reserva del frontend al formato de la API
 const mapReservaToAPI = (reserva) => {
-  return {
-    ID_Reserva: reserva.iD_Reserva,
+  const mapped = {
     FechaReserva: reserva.fechaReserva,
     TiempoTolerancia: reserva.tiempoTolerancia || '00:15:00', // Default 15 min
-    Comenzales: reserva.comensales,  // API usa "Comenzales" (typo en backend)
-    Estado: reserva.estado,
+    Comenzales: reserva.comensales,  // API usa "Comenzales"
+    Estado: reserva.estado !== undefined ? reserva.estado : false,
     FechaCreacion: reserva.fechaCreacion || new Date().toISOString(),
     MotivoRechazo: reserva.motivoRechazo || null,
     ID_Usuario: reserva.iD_Usuario,
     ID_Comercio: reserva.iD_Comercio
   };
+  
+  // Solo agregar ID_Reserva si existe (para ediciones)
+  if (reserva.iD_Reserva) {
+    mapped.ID_Reserva = reserva.iD_Reserva;
+  }
+  
+  return mapped;
 };
 
 // OPERACIONS CRUD 
@@ -106,7 +112,7 @@ export const getReservasByComercio = async (nombreComercio) => {
 // POST: /api/reservas/crear
 export const createReserva = async (reserva) => {
   try {
-    const apiReserva = mapReservaToAPI(reserva);    
+    const apiReserva = mapReservaToAPI(reserva);
     const response = await apiPost('/api/reservas/crear', apiReserva);
 
     return mapReservaFromAPI(response);

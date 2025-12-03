@@ -158,10 +158,20 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
       [field]: value,
     }));
     
+    // Limpiar error del campo específico
     if (errors[field]) {
       setErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[field];
+        return newErrors;
+      });
+    }
+    
+    // También limpiar el error general si existe
+    if (errors.submit) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.submit;
         return newErrors;
       });
     }
@@ -207,21 +217,42 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
 
     } catch (error) {
       
-      const errorMessage = error.response?.data;
+      // Extraer el mensaje de error de forma más robusta
+      let errorMessage = '';
       
-      if (typeof errorMessage === 'string') {
-        if (errorMessage.includes('inactiv') || errorMessage.includes('desactivad')) {
-          setErrors({ submit: 'Tu cuenta está desactivada. Contacta al administrador.' });
-        } else if (errorMessage.includes('pendiente')) {
-          setErrors({ submit: 'Ya tenés una reserva pendiente para este comercio.' });
-        } else if (errorMessage.includes('aprobada')) {
-          setErrors({ submit: 'Ya tenés una reserva confirmada para este comercio.' });
-        } else {
-          setErrors({ submit: errorMessage });
-        }
+      if (typeof error.response?.data === 'string') {
+        errorMessage = error.response.data;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
       } else {
-        setErrors({ submit: 'Error al crear la reserva. Intentá nuevamente.' });
+        errorMessage = 'Error al crear la reserva';
       }
+
+      // Determinar mensaje amigable
+      let userMessage = '';
+      
+      if (errorMessage.toLowerCase().includes('inactiv') || 
+          errorMessage.toLowerCase().includes('desactivad')) {
+        userMessage = '🚫 Tu cuenta está desactivada. Por favor, contactá al administrador para reactivarla.';
+      } else if (errorMessage.toLowerCase().includes('pendiente')) {
+        userMessage = '⏳ Ya tenés una reserva pendiente de aprobación para este comercio en esta fecha.';
+      } else if (errorMessage.toLowerCase().includes('aprobada')) {
+        userMessage = '✅ Ya tenés una reserva confirmada para este comercio en esta fecha.';
+      } else if (errorMessage.toLowerCase().includes('comercio') && 
+                 errorMessage.toLowerCase().includes('disponible')) {
+        userMessage = '🏪 Este comercio no está disponible para reservas en este momento.';
+      } else {
+        // Mostrar el mensaje original si no matchea con ninguno de los casos
+        userMessage = errorMessage;
+      }
+
+      // Setear el error en el estado
+      setErrors({ submit: userMessage });
+
     } finally {
       setIsLoading(false);
     }
@@ -254,7 +285,7 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
           className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header con gradiente */}
+          {/* Header */}
           <div className="relative bg-gradient-to-r from-pink-500 via-purple-500 to-purple-600 p-6 text-white overflow-hidden">
             {/* Decoraciones */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -303,6 +334,16 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Error general */}
+                {errors.submit && (
+                  <div className="p-4 bg-red-100 border-2 border-red-400 rounded-xl shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm font-medium text-red-800 leading-relaxed">{errors.submit}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Info de horario */}
                 {horarioInfo && (
                   <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
@@ -430,16 +471,6 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
                     </p>
                   )}
                 </div>
-
-                {/* Error general */}
-                {errors.submit && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-red-700">{errors.submit}</p>
-                    </div>
-                  </div>
-                )}
 
                 {/* Botones */}
                 <div className="flex gap-3 pt-2">
