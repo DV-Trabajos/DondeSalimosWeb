@@ -169,9 +169,11 @@ const AdminUsuarios = () => {
       type: 'select',
       label: 'Rol de Usuario',
       value: filters.rol,
-      options: roles.map(rol => ({
-        value: rol.iD_RolUsuario.toString(),
-        label: rol.descripcion
+      options: roles
+        .filter(rol => rol.estado === true)
+        .map(rol => ({
+          value: rol.iD_RolUsuario.toString(),
+          label: rol.descripcion
       }))
     },
     {

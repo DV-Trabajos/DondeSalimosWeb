@@ -1,8 +1,8 @@
 // RolModal.jsx - Modal unificado para ver/crear/editar roles
 import { useState, useEffect, useCallback } from 'react';
 import { 
-  X, Shield, Save, Loader2, AlertTriangle, Sparkles,
-  CheckCircle, Users, Hash, Eye, Edit, Trash2
+  X, Shield, Save, Loader2, AlertTriangle,
+  CheckCircle, Users, Hash, Eye, Edit, Trash2, XCircle
 } from 'lucide-react';
 import { isSystemRole, getRoleIcon, getRoleColor } from '../../services/rolesUsuarioService';
 
@@ -22,7 +22,10 @@ const RolModal = ({
   type = ROL_MODAL_TYPES.VIEW,
   usuariosCount = 0 // Cantidad de usuarios usando este rol
 }) => {
-  const [formData, setFormData] = useState({ descripcion: '' });
+  const [formData, setFormData] = useState({ 
+    descripcion: '',
+    estado: true 
+  });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,16 +51,17 @@ const RolModal = ({
   // Cargar datos si es modo edición o vista
   useEffect(() => {
     if (isOpen) {
-      if (rol && (isEditMode || isViewMode)) {
+      if (rol && (isEditMode || isViewMode || isDeleteMode)) {
         setFormData({
-          descripcion: rol.descripcion || rol.Descripcion || ''
+          descripcion: rol.descripcion || rol.Descripcion || '',
+          estado: rol.estado ?? rol.Estado ?? true
         });
       } else {
-        setFormData({ descripcion: '' });
+        setFormData({ descripcion: '', estado: true });
       }
       setErrors({});
     }
-  }, [isOpen, rol, isEditMode, isViewMode]);
+  }, [isOpen, rol, isEditMode, isViewMode, isDeleteMode]);
 
   if (!isOpen) return null;
 
@@ -103,18 +107,18 @@ const RolModal = ({
     try {
       await onSubmit({
         ...rol,
-        descripcion: formData.descripcion.trim()
+        descripcion: formData.descripcion.trim(),
+        estado: formData.estado
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleChange = (e) => {
-    const { value } = e.target;
-    setFormData({ descripcion: value });
-    if (errors.descripcion) {
-      setErrors({});
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
@@ -217,33 +221,80 @@ const RolModal = ({
                 <p className="text-gray-700 mb-4">
                   ¿Estás seguro de eliminar el rol <strong>"{rol.descripcion || rol.Descripcion}"</strong>?
                 </p>
-                <p className="text-sm text-gray-500">Esta acción no se puede deshacer.</p>
+                <p className="text-sm text-gray-500 mb-4">Esta acción no se puede deshacer.</p>
+                
+                {/* Alerta si está en uso */}
+                {usuariosCount > 0 && (
+                  <div className="p-3 bg-amber-50 border-2 border-amber-200 rounded-xl">
+                    <div className="flex items-center justify-center gap-2 text-amber-700">
+                      <AlertTriangle className="w-5 h-5" />
+                      <span className="font-medium">
+                        Este rol está siendo usado por {usuariosCount} usuario(s)
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Modo VIEW */}
             {isViewMode && rol && (
               <>
-                {/* Badge de sistema */}
+                {/* Alerta si es rol del sistema */}
                 {isSystem && (
-                  <div className="mb-4 p-3 bg-amber-50 border-2 border-amber-200 rounded-xl">
-                    <div className="flex items-center gap-2 text-amber-700">
-                      <AlertTriangle className="w-5 h-5" />
-                      <span className="font-medium">Rol del sistema (no editable)</span>
+                  <div className="mb-4 p-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                    <div className="flex items-center gap-2 text-blue-700">
+                      <Shield className="w-5 h-5" />
+                      <span className="font-medium">Rol del sistema (protegido)</span>
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-4">
-                  {/* Descripción */}
+                  {/* ID */}
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl flex items-center justify-center">
+                        <Hash className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium">ID del Rol</p>
+                        <p className="text-lg font-bold text-gray-900">#{rolId}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Descripción con icono */}
                   <div className="bg-gray-50 rounded-xl p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center text-2xl">
-                        {getRoleIcon ? getRoleIcon(rolId) : '👤'}
+                        {getRoleIcon(rolId) || '👤'}
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 font-medium">Nombre del Rol</p>
                         <p className="text-lg font-bold text-gray-900">{rol.descripcion || rol.Descripcion}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estado */}
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        formData.estado 
+                          ? 'bg-gradient-to-br from-emerald-500 to-teal-500' 
+                          : 'bg-gradient-to-br from-red-500 to-rose-500'
+                      }`}>
+                        {formData.estado 
+                          ? <CheckCircle className="w-6 h-6 text-white" />
+                          : <XCircle className="w-6 h-6 text-white" />
+                        }
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium">Estado</p>
+                        <p className={`text-lg font-bold ${formData.estado ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {formData.estado ? 'Activo' : 'Inactivo'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -277,6 +328,7 @@ const RolModal = ({
                   </div>
                 )}
 
+                {/* Descripción */}
                 <div className="mb-4">
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
                     <Shield className="w-4 h-4 text-violet-500" />
@@ -286,7 +338,7 @@ const RolModal = ({
                   <input
                     type="text"
                     value={formData.descripcion}
-                    onChange={handleChange}
+                    onChange={(e) => handleChange('descripcion', e.target.value)}
                     disabled={isSystem}
                     maxLength={50}
                     placeholder="Ej: Supervisor, Moderador..."
@@ -306,6 +358,28 @@ const RolModal = ({
                     <span className={`text-xs ${formData.descripcion.length > 45 ? 'text-amber-500' : 'text-gray-400'}`}>
                       {formData.descripcion.length}/50
                     </span>
+                  </div>
+                </div>
+
+                {/* Estado */}
+                <div className="mb-4">
+                  <div className="bg-gray-50 p-4 rounded-xl">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.estado}
+                        onChange={(e) => handleChange('estado', e.target.checked)}
+                        disabled={isSystem}
+                        className="w-5 h-5 text-violet-600 rounded focus:ring-violet-500 disabled:cursor-not-allowed"
+                      />
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className={`w-5 h-5 ${formData.estado ? 'text-emerald-500' : 'text-gray-400'}`} />
+                        <div>
+                          <span className="font-medium text-gray-900">Rol Activo</span>
+                          <p className="text-xs text-gray-500">Los usuarios podrán tener este rol asignado</p>
+                        </div>
+                      </div>
+                    </label>
                   </div>
                 </div>
               </form>

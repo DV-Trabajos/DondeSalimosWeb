@@ -1,8 +1,8 @@
 // TipoComercioModal.jsx - Modal unificado para ver/crear/editar tipos de comercio
 import { useState, useEffect, useCallback } from 'react';
 import { 
-  X, Building2, Save, Loader2, AlertTriangle, Sparkles,
-  CheckCircle, Store, Hash, Eye, Edit, Trash2, XCircle
+  X, Building2, Save, Loader2, AlertTriangle,
+  CheckCircle, Store, Eye, Edit, Trash2, XCircle
 } from 'lucide-react';
 
 // Tipos de modal
@@ -12,20 +12,6 @@ export const TIPO_MODAL_TYPES = {
   EDIT: 'edit',
   DELETE: 'delete'
 };
-
-// Iconos para tipos de comercio
-const ICONOS_SUGERIDOS = [
-  { emoji: '🍺', label: 'Bar' },
-  { emoji: '💃', label: 'Boliche' },
-  { emoji: '🍸', label: 'Cocktail Bar' },
-  { emoji: '🎤', label: 'Karaoke' },
-  { emoji: '🎵', label: 'Música en vivo' },
-  { emoji: '🍕', label: 'Restaurante' },
-  { emoji: '☕', label: 'Café' },
-  { emoji: '🎱', label: 'Pool/Billar' },
-  { emoji: '🎮', label: 'Gaming' },
-  { emoji: '🏪', label: 'Otro' }
-];
 
 const TipoComercioModal = ({ 
   isOpen, 
@@ -41,7 +27,6 @@ const TipoComercioModal = ({
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedEmoji, setSelectedEmoji] = useState('🏪');
 
   const isViewMode = type === TIPO_MODAL_TYPES.VIEW;
   const isCreateMode = type === TIPO_MODAL_TYPES.CREATE;
@@ -71,14 +56,8 @@ const TipoComercioModal = ({
           descripcion: desc,
           estado: tipo.estado ?? tipo.Estado ?? true
         });
-        // Detectar emoji según descripción
-        const found = ICONOS_SUGERIDOS.find(i => 
-          desc.toLowerCase().includes(i.label.toLowerCase())
-        );
-        setSelectedEmoji(found?.emoji || '🏪');
       } else {
         setFormData({ descripcion: '', estado: true });
-        setSelectedEmoji('🏪');
       }
       setErrors({});
     }
@@ -260,11 +239,11 @@ const TipoComercioModal = ({
             {/* Modo VIEW */}
             {isViewMode && tipo && (
               <div className="space-y-4">
-                {/* Descripción con emoji */}
+                {/* Descripción */}
                 <div className="bg-gray-50 rounded-xl p-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center text-2xl">
-                      {selectedEmoji}
+                      🏪
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 font-medium">Nombre del Tipo</p>
@@ -313,31 +292,6 @@ const TipoComercioModal = ({
             {/* Modo CREATE o EDIT */}
             {(isCreateMode || isEditMode) && (
               <form onSubmit={handleSubmit}>
-                {/* Selector de emoji */}
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    <Sparkles className="w-4 h-4 text-violet-500" />
-                    Ícono
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {ICONOS_SUGERIDOS.map((item) => (
-                      <button
-                        key={item.emoji}
-                        type="button"
-                        onClick={() => setSelectedEmoji(item.emoji)}
-                        className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center text-xl transition-all ${
-                          selectedEmoji === item.emoji 
-                            ? 'bg-violet-100 border-violet-500 ring-2 ring-violet-500/20 scale-110' 
-                            : 'border-gray-200 hover:border-violet-300'
-                        }`}
-                        title={item.label}
-                      >
-                        {item.emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Descripción */}
                 <div className="mb-4">
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
@@ -383,7 +337,7 @@ const TipoComercioModal = ({
                       <div className="flex items-center gap-2">
                         <CheckCircle className={`w-5 h-5 ${formData.estado ? 'text-emerald-500' : 'text-gray-400'}`} />
                         <div>
-                          <span className="font-medium text-gray-900">Tipo Activo</span>
+                          <span className="font-medium text-gray-900">Activo</span>
                           <p className="text-xs text-gray-500">Los comercios podrán seleccionar este tipo</p>
                         </div>
                       </div>

@@ -1,10 +1,11 @@
-// PlaceDetailModal.jsx - ACTUALIZADO: Sin alerts de JavaScript, delega al padre
+// PlaceDetailModal.jsx - Modal para detalle de los comercios en el mapa
 import { useState, useEffect, useRef } from 'react';
 import { 
   X, Star, MapPin, Phone, Mail, Users, Music, Calendar, Share2, Clock, ExternalLink
 } from 'lucide-react';
 import { convertBase64ToImage } from '../../utils/formatters';
 import { getReseniasByComercio } from '../../services/reseniasService';
+import { useAuth } from '../../hooks/useAuth';
 
 const PlaceDetailModal = ({
   place,
@@ -13,6 +14,9 @@ const PlaceDetailModal = ({
   onOpenReserva,
   onOpenReview,
 }) => {
+  // Obtener información del usuario para verificar si es admin
+  const { isAdmin } = useAuth();
+  
   const [reviews, setReviews] = useState([]);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [averageRating, setAverageRating] = useState(0);
@@ -88,7 +92,6 @@ const PlaceDetailModal = ({
           url: window.location.href,
         });
       } else {
-        // Fallback: copiar al portapapeles
         await navigator.clipboard.writeText(window.location.href);
       }
     } catch (err) {
@@ -249,7 +252,7 @@ const PlaceDetailModal = ({
 
             {place.capacidad && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <Users className="w-5 h-5 text-blue-500" />
+                <Users className="w-5 h-5 text-purple-500" />
                 <div>
                   <p className="text-xs text-gray-500">Capacidad</p>
                   <p className="text-sm font-medium text-gray-900">{place.capacidad} personas</p>
@@ -259,70 +262,58 @@ const PlaceDetailModal = ({
 
             {place.generoMusical && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <Music className="w-5 h-5 text-pink-500" />
+                <Music className="w-5 h-5 text-purple-500" />
                 <div>
                   <p className="text-xs text-gray-500">Género</p>
-                  <p className="text-sm font-medium text-gray-900 capitalize">{place.generoMusical}</p>
+                  <p className="text-sm font-medium text-gray-900">{place.generoMusical}</p>
                 </div>
               </div>
             )}
 
-            {/* Horario */}
-            {(place.horaIngreso || place.hora_ingreso || place.horaCierre || place.hora_cierre) && (() => {
-              const horaIngreso = place.horaIngreso || place.hora_ingreso;
-              const horaCierre = place.horaCierre || place.hora_cierre;
-              
-              // Función para verificar si está abierto
-              const isCurrentlyOpen = () => {
-                if (!horaIngreso || !horaCierre) return null;
-                
-                try {
-                  const now = new Date();
-                  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                  
-                  const [ingresoH, ingresoM] = horaIngreso.split(':').map(Number);
-                  const [cierreH, cierreM] = horaCierre.split(':').map(Number);
-                  
-                  const ingresoMinutes = ingresoH * 60 + ingresoM;
-                  const cierreMinutes = cierreH * 60 + cierreM;
-                  
-                  // Horario nocturno (cierra después de medianoche)
-                  if (cierreMinutes < ingresoMinutes) {
-                    return currentMinutes >= ingresoMinutes || currentMinutes < cierreMinutes;
-                  }
-                  
-                  // Horario normal
-                  return currentMinutes >= ingresoMinutes && currentMinutes < cierreMinutes;
-                } catch {
-                  return null;
-                }
-              };
-              
-              const formatTime = (time) => time?.substring(0, 5) || '--:--';
-              const isOpen = isCurrentlyOpen();
-              
-              return (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl col-span-2">
-                  <Clock className="w-5 h-5 text-orange-500" />
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500">Horario</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {formatTime(horaIngreso)} - {formatTime(horaCierre)}
-                    </p>
-                  </div>
-                  {isOpen !== null && (
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      isOpen 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {isOpen ? '🟢 Abierto' : '🔴 Cerrado'}
-                    </span>
-                  )}
+            {/* Horarios */}
+            {(place.horaIngreso || place.horaCierre) && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl col-span-2">
+                <Clock className="w-5 h-5 text-purple-500" />
+                <div>
+                  <p className="text-xs text-gray-500">Horario</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {place.horaIngreso?.substring(0, 5) || '--:--'} - {place.horaCierre?.substring(0, 5) || '--:--'}
+                  </p>
                 </div>
-              );
-            })()}
+              </div>
+            )}
           </div>
+
+          {/* Estado abierto/cerrado calculado */}
+          {place.isLocal && place.horaIngreso && place.horaCierre && (
+            <div className="flex items-center gap-2">
+              {(() => {
+                const now = new Date();
+                const currentTime = now.getHours() * 60 + now.getMinutes();
+                const [openH, openM] = (place.horaIngreso || '00:00').split(':').map(Number);
+                const [closeH, closeM] = (place.horaCierre || '00:00').split(':').map(Number);
+                const openTime = openH * 60 + openM;
+                const closeTime = closeH * 60 + closeM;
+                
+                let isOpen = false;
+                if (closeTime < openTime) {
+                  isOpen = currentTime >= openTime || currentTime < closeTime;
+                } else {
+                  isOpen = currentTime >= openTime && currentTime < closeTime;
+                }
+                
+                return (
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    isOpen 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {isOpen ? '🟢 Abierto' : '🔴 Cerrado'}
+                  </span>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Descripción */}
           {place.descripcion && (
@@ -360,26 +351,19 @@ const PlaceDetailModal = ({
                 </div>
               ) : (
                 <>
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
                     {displayedReviews.map((review, index) => (
-                      <div key={review.iD_Resenia || index} className="p-4 bg-gray-50 rounded-xl">
+                      <div key={review.iD_Resenia || index} className="p-3 bg-gray-50 rounded-xl">
                         <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">
-                                {(review.usuario?.nombreUsuario || 'U')[0].toUpperCase()}
-                              </span>
-                            </div>
-                            <span className="font-medium text-gray-900 text-sm">
-                              {review.usuario?.nombreUsuario || 'Usuario'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
+                          <span className="font-medium text-gray-900">
+                            {review.usuario?.nombreUsuario || 'Usuario'}
+                          </span>
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
                               <Star
-                                key={i}
-                                className={`w-3 h-3 ${
-                                  i < (review.calificacion || review.puntuacion || 0)
+                                key={star}
+                                className={`w-4 h-4 ${
+                                  star <= (review.puntuacion || review.calificacion)
                                     ? 'fill-yellow-400 text-yellow-400'
                                     : 'text-gray-300'
                                 }`}
@@ -425,8 +409,8 @@ const PlaceDetailModal = ({
           )}
         </div>
 
-        {/* Footer con botones - Solo para comercios locales */}
-        {place.isLocal && (
+        {/* Footer con botones - Solo para comercios locales y usuarios NO admin */}
+        {place.isLocal && !isAdmin && (
           <div className="border-t border-gray-200 p-4 bg-gray-50 flex-shrink-0">
             <div className="flex gap-3">
               <button

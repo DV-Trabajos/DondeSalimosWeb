@@ -1,11 +1,26 @@
 // ComercioDetailModal.jsx - Modal de detalles de comercio
+import { useEffect, useCallback } from 'react';
 import { 
   X, Store, Mail, Phone, MapPin, Calendar, CheckCircle, XCircle, 
-  Clock, Users, Music, FileText, AlertTriangle, ExternalLink, Hash, Sparkles
+  Clock, Users, Music, FileText, AlertTriangle, ExternalLink, Hash, Sparkles, Image as ImageIcon
 } from 'lucide-react';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, convertBase64ToImage } from '../../utils/formatters';
 
-const ComercioDetailModal = ({ comercio, isOpen, onClose }) => {
+const ComercioDetailModal = ({ comercio, isOpen, onClose, tiposComercioMap = {} }) => {
+  // Cerrar formulario con tecla ESC
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  }, [onClose]);
+  
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, handleKeyDown]);
+  
   if (!isOpen || !comercio) return null;
 
   // Configuración del estado (solo para badges)
@@ -52,6 +67,25 @@ const ComercioDetailModal = ({ comercio, isOpen, onClose }) => {
   const horaIngreso = formatTime(comercio.horaIngreso);
   const horaCierre = formatTime(comercio.horaCierre);
 
+  // Obtener imagen
+  const getImageUrl = () => {
+    if (comercio.foto) {
+      return convertBase64ToImage(comercio.foto);
+    }
+    return null;
+  };
+
+  const imageUrl = getImageUrl();
+
+  // Obtener tipo de comercio
+  const getTipoComercio = () => {
+    const tipoId = comercio.iD_TipoComercio;
+    if (tiposComercioMap && tiposComercioMap[tipoId]) {
+      return tiposComercioMap[tipoId];
+    }
+    return 'No especificado';
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Overlay con blur */}
@@ -64,12 +98,12 @@ const ComercioDetailModal = ({ comercio, isOpen, onClose }) => {
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
           
-          {/* Header */}
+          {/* Header con imagen */}
           <div className="relative h-48 overflow-hidden">
-            {comercio.imagen ? (
+            {imageUrl ? (
               <>
                 <img 
-                  src={comercio.imagen} 
+                  src={imageUrl} 
                   alt={comercio.nombre}
                   className="w-full h-full object-cover"
                 />
@@ -115,44 +149,29 @@ const ComercioDetailModal = ({ comercio, isOpen, onClose }) => {
             {/* Badges de estado */}
             <div className="flex flex-wrap gap-3 mb-6">
               {/* Estado */}
-              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 ${estadoConfig.bg} ${estadoConfig.border}`}>
-                <div className={`w-8 h-8 bg-gradient-to-br ${estadoConfig.gradient} rounded-lg flex items-center justify-center`}>
-                  <EstadoIcon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className={`text-xs ${estadoConfig.text} font-medium`}>Estado</p>
-                  <p className={`${estadoConfig.text} font-semibold`}>{estadoConfig.label}</p>
-                </div>
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl ${estadoConfig.bg} ${estadoConfig.text} border-2 ${estadoConfig.border}`}>
+                <EstadoIcon className="w-5 h-5" />
+                <span className="font-semibold">{estadoConfig.label}</span>
               </div>
-
+              
               {/* Horario */}
               {horaIngreso && horaCierre && (
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 bg-blue-50 border-blue-200">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-blue-600 font-medium">Horario</p>
-                    <p className="text-blue-700 font-semibold">{horaIngreso} - {horaCierre}</p>
-                  </div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-50 text-violet-700 border-2 border-violet-200">
+                  <Clock className="w-5 h-5" />
+                  <span className="font-semibold">{horaIngreso} - {horaCierre}</span>
                 </div>
               )}
-
+              
               {/* Capacidad */}
               {comercio.capacidad > 0 && (
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 bg-purple-50 border-purple-200">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-purple-600 font-medium">Capacidad</p>
-                    <p className="text-purple-700 font-semibold">{comercio.capacidad} personas</p>
-                  </div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 border-2 border-blue-200">
+                  <Users className="w-5 h-5" />
+                  <span className="font-semibold">{comercio.capacidad} personas</span>
                 </div>
               )}
             </div>
 
-            {/* Información de Contacto */}
+            {/* Información de contacto */}
             <div className="bg-gray-50 rounded-2xl p-5 mb-6">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
@@ -191,7 +210,8 @@ const ComercioDetailModal = ({ comercio, isOpen, onClose }) => {
             {/* Información Fiscal */}
             {comercio.nroDocumento && (
               <div className="bg-gray-50 rounded-2xl p-5 mb-6">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
                   Información Fiscal
                 </h3>
                 
@@ -212,54 +232,48 @@ const ComercioDetailModal = ({ comercio, isOpen, onClose }) => {
             )}
 
             {/* Información Adicional */}
-            {(comercio.mesas > 0 || comercio.generoMusical) && (
-              <div className="bg-gray-50 rounded-2xl p-5 mb-6">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">
-                  Información Adicional
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {comercio.mesas > 0 && (
-                    <InfoItem 
-                      icon={<Store className="w-5 h-5 text-violet-500" />}
-                      label="Número de mesas"
-                      value={comercio.mesas}
-                    />
-                  )}
-                  
-                  {comercio.generoMusical && (
-                    <InfoItem 
-                      icon={<Music className="w-5 h-5 text-violet-500" />}
-                      label="Género Musical"
-                      value={comercio.generoMusical}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
+            <div className="bg-gray-50 rounded-2xl p-5 mb-6">
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Store className="w-4 h-4" />
+                Información del Local
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoItem 
+                  icon={<Store className="w-5 h-5 text-violet-500" />}
+                  label="Tipo de comercio"
+                  value={getTipoComercio()}
+                />
 
-            {/* Propietario */}
-            {comercio.usuario && (
-              <div className="bg-gray-50 rounded-2xl p-5 mb-6">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Propietario
-                </h3>
+                {comercio.mesas > 0 && (
+                  <InfoItem 
+                    icon={<Users className="w-5 h-5 text-violet-500" />}
+                    label="Número de mesas"
+                    value={comercio.mesas}
+                  />
+                )}
                 
-                <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                    <span className="text-xl">👤</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{comercio.usuario.nombreUsuario}</p>
-                    <p className="text-sm text-gray-500">{comercio.usuario.correo}</p>
-                  </div>
-                </div>
-              </div>
-            )}
+                {comercio.generoMusical && (
+                  <InfoItem 
+                    icon={<Music className="w-5 h-5 text-violet-500" />}
+                    label="Género musical"
+                    value={comercio.generoMusical}
+                  />
+                )}
 
-            {/* Motivo de rechazo si existe */}
+                {comercio.usuario && (
+                  <InfoItem 
+                    icon={<Users className="w-5 h-5 text-violet-500" />}
+                    label="Propietario"
+                    value={comercio.usuario.nombreUsuario || comercio.usuario.correo}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Motivo de rechazo (si aplica) */}
             {comercio.motivoRechazo && (
-              <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5">
+              <div className="bg-red-50 rounded-2xl p-5 border-2 border-red-200">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center flex-shrink-0">
                     <AlertTriangle className="w-5 h-5 text-white" />
@@ -310,7 +324,7 @@ const InfoItem = ({ icon, label, value }) => (
     </div>
     <div className="flex-1 min-w-0">
       <p className="text-xs font-medium text-gray-500 mb-0.5">{label}</p>
-      <p className="text-gray-900 font-medium break-words">{value}</p>
+      <p className="text-gray-900 font-medium break-words">{value || 'No especificado'}</p>
     </div>
   </div>
 );

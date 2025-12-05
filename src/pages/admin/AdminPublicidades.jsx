@@ -1,12 +1,13 @@
 // AdminPublicidades.jsx - Gestión completa de publicidades CRUD completo
 import { useState, useEffect, useMemo } from 'react';
-import { Megaphone, CheckCircle, XCircle, DollarSign, Clock, Plus, Edit } from 'lucide-react';
+import { Megaphone, CheckCircle, XCircle, DollarSign, Clock, Plus, Edit, Trash2 } from 'lucide-react';
 import AdminLayout from '../../components/Admin/AdminLayout';
 import DataTable from '../../components/Admin/DataTable';
 import { TableFilters, ActiveFilters } from '../../components/Admin/TableFilters';
 import ExportMenu from '../../components/Admin/ExportMenu';
 import PublicidadDetailModal from '../../components/Admin/PublicidadDetailModal';
 import CreatePublicidadModal from '../../components/Admin/CreatePublicidadModal';
+import DeletePublicidadModal from '../../components/Publicidad/DeletePublicidadModal';
 import { ConfirmationModal, NotificationModal, InputModal } from '../../components/Modals';
 import { 
   getAllPublicidades, 
@@ -15,7 +16,8 @@ import {
 } from '../../services/adminService';
 import { 
   createPublicidad,
-  updatePublicidad
+  updatePublicidad,
+  deletePublicidad
 } from '../../services/publicidadesService';
 import { getAllComercios } from '../../services/comerciosService';
 import { convertBase64ToImage, formatTimeSpanToDays } from '../../utils/formatters';
@@ -39,6 +41,8 @@ const AdminPublicidades = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [showInputModal, setShowInputModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
 
   useEffect(() => {
@@ -303,7 +307,7 @@ const AdminPublicidades = () => {
             </>
           )}
           
-          {/* Botón Editar - siempre visible */}
+          {/* Botón Editar */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -313,6 +317,18 @@ const AdminPublicidades = () => {
             title="Editar"
           >
             <Edit className="w-4 h-4" />
+          </button>
+
+          {/* Botón Eliminar */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEliminar(row);
+            }}
+            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       )
@@ -380,6 +396,28 @@ const AdminPublicidades = () => {
   const handleEditar = (publicidad) => {
     setSelectedPublicidad(publicidad);
     setShowCreateModal(true);
+  };
+
+  const handleEliminar = (publicidad) => {
+    setSelectedPublicidad(publicidad);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeletePublicidad = async () => {
+    if (!selectedPublicidad) return;
+    
+    try {
+      setIsDeleting(true);
+      await deletePublicidad(selectedPublicidad.iD_Publicidad);
+      notify('Publicidad eliminada correctamente', 'success');
+      setShowDeleteModal(false);
+      setSelectedPublicidad(null);
+      loadData();
+    } catch (error) {
+      notify('Error al eliminar publicidad', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleNuevaPublicidad = () => {
@@ -504,6 +542,19 @@ const AdminPublicidades = () => {
         onSubmit={handleSubmitPublicidad}
         comercios={comercios}
         publicidad={selectedPublicidad}
+      />
+
+      {/* Modal de Eliminar */}
+      <DeletePublicidadModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedPublicidad(null);
+        }}
+        onConfirm={confirmDeletePublicidad}
+        publicidad={selectedPublicidad}
+        nombreComercio={selectedPublicidad?.comercio?.nombre}
+        isDeleting={isDeleting}
       />
 
       {/* Modal de Confirmación */}

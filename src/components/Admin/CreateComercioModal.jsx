@@ -5,7 +5,7 @@ import {
   Clock, AlertTriangle, CheckCircle, Upload, Hash, Sparkles, Image as ImageIcon
 } from 'lucide-react';
 import { formatCUITOnType, getErrorCUIT } from '../../utils/cuitValidator';
-import { convertImageToBase64 } from '../../utils/formatters';
+import { convertImageToBase64, convertBase64ToImage } from '../../utils/formatters';
 import { getAllTiposComercio, filterActiveTipos } from '../../services/tiposComercioService';
 
 const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comercio = null }) => {
@@ -64,6 +64,7 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
       const tiposActivos = filterActiveTipos(tipos);
       setTiposComercio(tiposActivos);
     } catch (error) {
+      console.error('Error cargando tipos de comercio:', error);
       setTiposComercio([]);
     } finally {
       setLoadingTipos(false);
@@ -85,7 +86,7 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
         telefono: comercio.telefono || '',
         correo: comercio.correo || '',
         nroDocumento: formatCUITOnType(comercio.nroDocumento || ''),
-        tipoDocumento: comercio.tipoDocumento || 'CUIT',
+        tipoDocumento: (comercio.tipoDocumento || 'CUIT').trim(),
         iD_TipoComercio: comercio.iD_TipoComercio ? String(comercio.iD_TipoComercio) : '',
         capacidad: comercio.capacidad ? String(comercio.capacidad) : '',
         mesas: comercio.mesas ? String(comercio.mesas) : '',
@@ -96,8 +97,9 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
         estado: comercio.estado || false,
       });
       
-      if (comercio.imagen) {
-        setImagePreview(comercio.imagen);
+      // Usar convertBase64ToImage para generar URL válida
+      if (comercio.foto) {
+        setImagePreview(convertBase64ToImage(comercio.foto));
       }
     } else if (isOpen) {
       resetForm();
@@ -188,15 +190,17 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
     try {
       const base64 = await convertImageToBase64(file);
       setFormData(prev => ({ ...prev, imagen: base64 }));
-      setImagePreview(base64);
+      // Usar convertBase64ToImage para generar URL válida para el preview
+      setImagePreview(convertBase64ToImage(base64));
       setErrors(prev => ({ ...prev, imagen: '' }));
     } catch (error) {
+      console.error('Error al procesar imagen:', error);
       setErrors(prev => ({ ...prev, imagen: 'Error al procesar la imagen' }));
     }
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
@@ -223,7 +227,7 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
         generoMusical: formData.generoMusical || null,
         horaIngreso: formatTimeToTimeSpan(formData.horaIngreso),
         horaCierre: formatTimeToTimeSpan(formData.horaCierre),
-        imagen: formData.imagen || (isEditMode ? comercio.imagen : null),
+        foto: formData.imagen || (isEditMode ? comercio.foto : null),
         estado: isRechazado ? false : formData.estado,
         motivoRechazo: isRechazado ? null : (comercio?.motivoRechazo || null),
         fechaCreacion: isEditMode ? comercio.fechaCreacion : new Date().toISOString(),
@@ -238,6 +242,7 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
       await onSubmit(dataToSubmit);
       handleClose();
     } catch (error) {
+      console.error('Error al guardar comercio:', error);
       setErrors({ submit: 'Error al guardar el comercio. Intenta nuevamente.' });
     } finally {
       setIsSubmitting(false);
@@ -251,6 +256,7 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
     }
   };
 
+  // Filtrar usuarios con rol de comercio (rol 3) y activos
   const usuariosComercio = usuarios.filter(u => u.iD_RolUsuario === 3 && u.estado);
 
   return (
@@ -313,6 +319,9 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                   <div>
                     <h4 className="font-semibold text-amber-800">Comercio rechazado</h4>
                     <p className="text-sm text-amber-700 mt-1">
+                      <strong>Motivo:</strong> {comercio.motivoRechazo}
+                    </p>
+                    <p className="text-sm text-amber-600 mt-2">
                       Al guardar, el comercio volverá a estado "Pendiente" para revisión.
                     </p>
                   </div>
@@ -348,9 +357,9 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                     }`}
                   >
                     <option value="">Seleccionar propietario...</option>
-                    {usuariosComercio.map((u) => (
-                      <option key={u.iD_Usuario} value={u.iD_Usuario}>
-                        {u.nombreUsuario}
+                    {usuariosComercio.map(user => (
+                      <option key={user.iD_Usuario} value={String(user.iD_Usuario)}>
+                        {user.nombreUsuario} - {user.correo}
                       </option>
                     ))}
                   </select>
@@ -362,29 +371,38 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                     name="nombre"
                     value={formData.nombre}
                     onChange={handleChange}
-                    placeholder="Ej: Bar El Encuentro"
+                    placeholder="Ej: La Farola Bar"
                     className={`w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all ${
                       errors.nombre ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   />
                 </FormField>
 
-                <FormField icon={<Store />} label="Tipo de Comercio" required error={errors.iD_TipoComercio}>
+                <FormField icon={<Store />} label="Tipo de Comercio" required>
                   <select
                     name="iD_TipoComercio"
                     value={formData.iD_TipoComercio}
                     onChange={handleChange}
                     disabled={loadingTipos}
-                    className={`w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all ${
-                      errors.iD_TipoComercio ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all border-gray-200 hover:border-gray-300 ${loadingTipos ? 'bg-gray-100' : ''}`}
                   >
-                    <option value="">{loadingTipos ? 'Cargando...' : 'Seleccionar tipo...'}</option>
-                    {tiposComercio.map((tipo) => (
-                      <option key={tipo.iD_TipoComercio || tipo.ID_TipoComercio} value={tipo.iD_TipoComercio || tipo.ID_TipoComercio}>
-                        {tipo.descripcion || tipo.Descripcion}
-                      </option>
-                    ))}
+                    {loadingTipos ? (
+                      <option value="">Cargando tipos...</option>
+                    ) : tiposComercio.length === 0 ? (
+                      <option value="">No hay tipos disponibles</option>
+                    ) : (
+                      <>
+                        <option value="">Seleccionar tipo...</option>
+                        {tiposComercio.map((tipo) => (
+                          <option 
+                            key={tipo.iD_TipoComercio || tipo.ID_TipoComercio} 
+                            value={tipo.iD_TipoComercio || tipo.ID_TipoComercio}
+                          >
+                            {tipo.descripcion || tipo.Descripcion}
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </FormField>
 
@@ -394,7 +412,7 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                     name="direccion"
                     value={formData.direccion}
                     onChange={handleChange}
-                    placeholder="Ej: Av. Corrientes 1234, CABA"
+                    placeholder="Calle, número, ciudad"
                     className={`w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all ${
                       errors.direccion ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -403,14 +421,25 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
               </div>
             </div>
 
-            {/* INFORMACIÓN DE CONTACTO */}
+            {/* CONTACTO */}
             <div className="mb-6">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Phone className="w-4 h-4" />
-                Información de Contacto
+                Contacto
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField icon={<Phone />} label="Teléfono">
+                  <input
+                    type="tel"
+                    name="telefono"
+                    value={formData.telefono}
+                    onChange={handleChange}
+                    placeholder="Ej: 1156789012"
+                    className="w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all border-gray-200 hover:border-gray-300"
+                  />
+                </FormField>
+
                 <FormField icon={<Mail />} label="Correo Electrónico" required error={errors.correo}>
                   <input
                     type="email"
@@ -420,19 +449,6 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                     placeholder="comercio@email.com"
                     className={`w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all ${
                       errors.correo ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  />
-                </FormField>
-
-                <FormField icon={<Phone />} label="Teléfono" error={errors.telefono}>
-                  <input
-                    type="tel"
-                    name="telefono"
-                    value={formData.telefono}
-                    onChange={handleChange}
-                    placeholder="Ej: 1156789012"
-                    className={`w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all ${
-                      errors.telefono ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   />
                 </FormField>
@@ -456,9 +472,11 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                   >
                     <option value="CUIT">CUIT</option>
                     <option value="CUIL">CUIL</option>
+                    <option value="DNI">DNI</option>
                   </select>
                 </FormField>
 
+                {/* Tipo de documento seleccionado */}
                 <FormField icon={<Hash />} label={`Número de ${formData.tipoDocumento}`} required error={errors.nroDocumento}>
                   <input
                     type="text"
@@ -483,13 +501,13 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField icon={<User />} label="Capacidad">
+                <FormField icon={<User />} label="Capacidad (personas)">
                   <input
                     type="number"
                     name="capacidad"
                     value={formData.capacidad}
                     onChange={handleChange}
-                    placeholder="0"
+                    placeholder="Ej: 100"
                     min="0"
                     className="w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all border-gray-200 hover:border-gray-300"
                   />
@@ -501,7 +519,7 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                     name="mesas"
                     value={formData.mesas}
                     onChange={handleChange}
-                    placeholder="0"
+                    placeholder="Ej: 20"
                     min="0"
                     className="w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all border-gray-200 hover:border-gray-300"
                   />
@@ -513,14 +531,14 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                     name="generoMusical"
                     value={formData.generoMusical}
                     onChange={handleChange}
-                    placeholder="Ej: Rock, Jazz..."
+                    placeholder="Ej: Rock, Electrónica"
                     className="w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all border-gray-200 hover:border-gray-300"
                   />
                 </FormField>
               </div>
             </div>
 
-            {/* HORARIOS */}
+            {/* HORARIOS DE ATENCIÓN */}
             <div className="mb-6">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Clock className="w-4 h-4" />

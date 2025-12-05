@@ -1,6 +1,6 @@
 // AdminTiposComercio.jsx - Gestión de Tipos de Comercio
 import { useState, useEffect, useMemo } from 'react';
-import { Store, Plus, Edit, Trash2, Building2, CheckCircle, XCircle, Power } from 'lucide-react';
+import { Store, Plus, Edit, Trash2, Building2, CheckCircle, XCircle } from 'lucide-react';
 import AdminLayout from '../../components/Admin/AdminLayout';
 import DataTable from '../../components/Admin/DataTable';
 import { TableFilters, ActiveFilters } from '../../components/Admin/TableFilters';
@@ -170,7 +170,8 @@ const AdminTiposComercio = () => {
         case TIPO_MODAL_TYPES.CREATE:
           await createTipoComercio({ 
             descripcion: data.descripcion,
-            estado: true 
+            estado: data.estado ,
+            FechaCreacion: new Date().toISOString()
           });
           success('Tipo de comercio creado correctamente');
           break;
@@ -180,7 +181,7 @@ const AdminTiposComercio = () => {
           await updateTipoComercio(tipoIdEdit, {
             ID_TipoComercio: tipoIdEdit,
             Descripcion: data.descripcion,
-            Estado: selectedTipo.estado ?? selectedTipo.Estado
+            Estado: data.estado
           });
           success('Tipo de comercio actualizado correctamente');
           break;
