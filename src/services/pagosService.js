@@ -45,12 +45,11 @@ export const formatearDiasAEtiqueta = (dias) => {
 // FUNCIONES DE PAGO - Crea una preferencia de pago en Mercado Pago
 export const crearPreferencia = async ({ titulo, precio, publicidadId }) => {
   try {
-    
-    // Enviar propiedades en PascalCase para C#
     const response = await api.post('/api/Pagos/crear-preferencia', {
       Titulo: titulo,
       Precio: precio,
       PublicidadId: publicidadId,
+      IsWeb: true,
     });
 
     return response.data;

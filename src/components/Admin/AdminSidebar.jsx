@@ -42,12 +42,6 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
       gradient: 'from-violet-500 to-purple-500'
     },
     { 
-      icon: Calendar, 
-      label: 'Reservas', 
-      path: '/admin/reservas',
-      gradient: 'from-violet-500 to-purple-500'
-    },
-    { 
       icon: Shield, 
       label: 'Roles', 
       path: '/admin/roles',

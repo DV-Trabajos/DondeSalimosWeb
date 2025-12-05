@@ -46,16 +46,23 @@ export const getAllPublicidades = async () => {
   return response.data;
 };
 
-export const aprobarPublicidad = async (id, pubData) => {
-  const updatedData = { ...pubData, estado: true, motivoRechazo: null };
-  const response = await api.put(`/api/Publicidades/actualizar/${id}`, updatedData);
+// Cambiar estado de publicidad (aprobar/rechazar)
+// PUT: api/publicidades/cambiar-estado/{id}
+export const cambiarEstadoPublicidad = async (id, estado, motivoRechazo = null) => {
+  const response = await api.put(`/api/Publicidades/cambiar-estado/${id}`, {
+    Estado: estado,
+    MotivoRechazo: motivoRechazo
+  });
   return response.data;
 };
 
+// Helpers para mantener compatibilidad
+export const aprobarPublicidad = async (id) => {
+  return cambiarEstadoPublicidad(id, true);
+};
+
 export const rechazarPublicidad = async (id, pubData, motivo) => {
-  const updatedData = { ...pubData, estado: false, motivoRechazo: motivo };
-  const response = await api.put(`/api/Publicidades/actualizar/${id}`, updatedData);
-  return response.data;
+  return cambiarEstadoPublicidad(id, false, motivo);
 };
 
 // RESEÑAS

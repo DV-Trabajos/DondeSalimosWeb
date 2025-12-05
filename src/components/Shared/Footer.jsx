@@ -48,16 +48,9 @@ const Footer = () => {
   const quickLinks = [
     { name: 'Inicio', path: '/', isHash: false },
     { name: 'Quiénes Somos', path: '/#about', hash: '#about', isHash: true },
-    { name: 'Registrar mi Comercio', path: '/login?rol=comercio', isHash: false },
+    { name: 'Registrar mi Comercio', path: '/login', isHash: false, state: { register: true, registerAsComercio: true } },
     { name: 'Términos y Condiciones', path: '/terminos', isHash: false, scrollTop: true },
     { name: 'Política de Privacidad', path: '/privacidad', isHash: false, scrollTop: true },
-  ];
-
-  const categories = [
-    { name: 'Bares', path: '/?tipoComercio=1' },
-    { name: 'Boliches', path: '/?tipoComercio=2' },
-    { name: 'Con música en vivo', path: '/?generoMusical=rock' },
-    { name: 'Electrónica', path: '/?generoMusical=techno' },
   ];
 
   return (
@@ -119,29 +112,13 @@ const Footer = () => {
                   ) : (
                     <Link
                       to={link.path}
+                      state={link.state}
                       onClick={() => link.scrollTop && window.scrollTo({ top: 0, behavior: 'smooth' })}
                       className="text-gray-400 hover:text-pink-400 transition text-sm flex items-center gap-1"
                     >
                       {link.name}
                     </Link>
                   )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Columna 3: Categorías */}
-          <div>
-            <h4 className="font-semibold text-lg mb-4 text-white">Explorá</h4>
-            <ul className="space-y-2">
-              {categories.map((cat) => (
-                <li key={cat.name}>
-                  <Link
-                    to={cat.path}
-                    className="text-gray-400 hover:text-pink-400 transition text-sm"
-                  >
-                    {cat.name}
-                  </Link>
                 </li>
               ))}
             </ul>

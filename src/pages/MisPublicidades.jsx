@@ -244,13 +244,11 @@ const MisPublicidades = () => {
 
     setCreating(true);
     
-    try {
-      const tiempoFormateado = `${duracion}.00:00:00`;
-      
+    try {      
       const publicidadData = {
         iD_Comercio: parseInt(selectedComercio),
         descripcion: descripcion.trim(),
-        tiempo: tiempoFormateado,
+        tiempo: parseInt(duracion),
         imagen: imagen,
         visualizaciones: 0,
         estado: false,
@@ -722,13 +720,16 @@ const MisPublicidades = () => {
                           </button>
                         )}
                         
-                        <button
-                          onClick={() => handleDelete(pub)}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Eliminar
-                        </button>
+                        {/* Solo mostrar eliminar para rechazadas o pendientes */}
+                        {(estadoInfo.estado === 'rechazada' || estadoInfo.estado === 'pendiente') && (
+                          <button
+                            onClick={() => handleDelete(pub)}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Eliminar
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -757,7 +758,8 @@ const MisPublicidades = () => {
           setPublicidadToDelete(null);
         }}
         onConfirm={confirmDelete}
-        comercioNombre={publicidadToDelete ? getNombreComercio(publicidadToDelete) : ''}
+        publicidad={publicidadToDelete}
+        nombreComercio={publicidadToDelete ? getNombreComercio(publicidadToDelete) : ''}
         isDeleting={isDeleting}
       />
     </div>

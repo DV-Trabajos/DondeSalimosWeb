@@ -12,15 +12,15 @@ const CreatePublicidadModal = ({ isOpen, onClose, onSubmit, comercios = [], publ
 
   // Duraciones disponibles (en días)
   const DURACIONES = [
-    { value: 7, label: '1 Semana', sublabel: '7 días', timeSpan: '7:00:00', icon: '📅' },
-    { value: 15, label: '15 Días', sublabel: 'Quincenal', timeSpan: '15:00:00', icon: '📆' },
-    { value: 30, label: '1 Mes', sublabel: '30 días', timeSpan: '30:00:00', icon: '🗓️' }
+    { value: 7, label: '1 Semana', sublabel: '7 días', timeSpan: '7:00:00.000', icon: '📅' },
+    { value: 15, label: '15 Días', sublabel: 'Quincenal', timeSpan: '15:00:00.000', icon: '📆' },
+    { value: 30, label: '1 Mes', sublabel: '30 días', timeSpan: '23:00:00.000', icon: '🗓️' }
   ];
 
   const [formData, setFormData] = useState({
     iD_Comercio: '',
     descripcion: '',
-    tiempo: '7:00:00',
+    tiempo: '7:00:00.000',
     imagen: null,
     visualizaciones: 0,
     estado: false,
@@ -67,7 +67,7 @@ const CreatePublicidadModal = ({ isOpen, onClose, onSubmit, comercios = [], publ
       setFormData({
         iD_Comercio: '',
         descripcion: '',
-        tiempo: '7:00:00',
+        tiempo: '7:00:00.000',
         imagen: null,
         visualizaciones: 0,
         estado: false,
@@ -117,7 +117,7 @@ const CreatePublicidadModal = ({ isOpen, onClose, onSubmit, comercios = [], publ
     try {
       const base64 = await convertImageToBase64(file);
       setFormData(prev => ({ ...prev, imagen: base64 }));
-      setImagePreview(base64);
+      setImagePreview(convertBase64ToImage(base64));  // ✅ FIX: convierte a URL válida
       setErrors(prev => ({ ...prev, imagen: '' }));
     } catch (error) {
       setErrors(prev => ({ ...prev, imagen: 'Error al procesar la imagen' }));
@@ -173,7 +173,7 @@ const CreatePublicidadModal = ({ isOpen, onClose, onSubmit, comercios = [], publ
       setFormData({
         iD_Comercio: '',
         descripcion: '',
-        tiempo: '7:00:00',
+        tiempo: '7:00:00.000',
         imagen: null,
         visualizaciones: 0,
         estado: false,
@@ -199,10 +199,11 @@ const CreatePublicidadModal = ({ isOpen, onClose, onSubmit, comercios = [], publ
   // Filtrar comercios aprobados y activos
   const comerciosActivos = comercios.filter(c => c.estado === true);
 
-  // Obtener duración actual seleccionada
-  const getDuracionActual = () => {
-    return DURACIONES.find(d => d.timeSpan === formData.tiempo) || DURACIONES[0];
-  };
+  // Obtener duración actual seleccionada - comparar por días
+const getDuracionActual = () => {
+  const dias = formatTimeSpanToDays(formData.tiempo);
+  return DURACIONES.find(d => d.value === dias) || DURACIONES[0];
+};
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -295,7 +296,8 @@ const CreatePublicidadModal = ({ isOpen, onClose, onSubmit, comercios = [], publ
               
               <div className="grid grid-cols-3 gap-3">
                 {DURACIONES.map((duracion) => {
-                  const isSelected = formData.tiempo === duracion.timeSpan;
+                  const diasActuales = formatTimeSpanToDays(formData.tiempo);
+                  const isSelected = diasActuales === duracion.value;
                   return (
                     <button
                       key={duracion.value}

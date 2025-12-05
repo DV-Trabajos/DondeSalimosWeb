@@ -33,6 +33,23 @@ const Login = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Detectar si viene desde "Registrarse" o "Registrar mi comercio"
+  useEffect(() => {
+    if (location.state?.register) {
+      setIsRegistering(true);
+    }
+
+    // Si viene con un rol específico
+    if (location.state?.role) {
+      setSelectedRole(location.state.role);
+    }
+
+    // Si viene del Footer como comercio
+    if (location.state?.registerAsComercio) {
+      setSelectedRole(ROLES.USUARIO_COMERCIO);
+    }
+  }, [location.state?.register, location.state?.registerAsComercio, location.state?.role]);
+
   // Opciones de roles para registro
   const roleOptions = [
     {

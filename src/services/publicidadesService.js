@@ -2,16 +2,31 @@
 import api from './api';
 
 // HELPERS
-// Convierte días a formato TimeSpan del backend C#
+// Convierte días a formato TimeSpan del backend
+// 7 días = "7:00:00", 15 días = "15:00:00", 30 días = "23:00:00"
 const diasToTimeSpan = (dias) => {
-  let numDias = parseInt(dias) || 7;
+  // Si ya viene en formato TimeSpan válido, extraer el valor
+  if (typeof dias === 'string') {
+    // Remover el punto si existe (formato incorrecto)
+    if (dias.includes('.')) {
+      dias = parseInt(dias.split('.')[0]) || 7;
+    } else if (dias.includes(':')) {
+      dias = parseInt(dias.split(':')[0]) || 7;
+    }
+  }
   
-  // 30 días se representa como 23 (máximo permitido por TimeSpan horas)
+  let numDias = parseInt(dias) || 7;
+
+  // 30 días se representa como 23 (workaround)
   if (numDias >= 30) {
     numDias = 23;
   }
   
-  return `${numDias}:00:00`;
+  // Asegurar que esté en el rango válido (1-23)
+  if (numDias < 1) numDias = 7;
+  if (numDias > 23) numDias = 23;
+  
+  return `${numDias}:00:00.000`;
 };
 
 // Convierte TimeSpan del backend a días
@@ -65,8 +80,15 @@ export const searchPublicidadesByComercio = async (nombreComercio) => {
 // Crea una nueva publicidad
 // POST: api/publicidades/crear
 export const createPublicidad = async (publicidadData) => {
-  // Convertir días a TimeSpan
-  const tiempoTimeSpan = diasToTimeSpan(publicidadData.tiempo);
+  // Si ya viene en formato TimeSpan (string con ":"), usarlo directamente - Solo convertir si es un número
+  let tiempoTimeSpan = publicidadData.tiempo;
+
+  if (typeof publicidadData.tiempo === 'number') {
+    tiempoTimeSpan = diasToTimeSpan(publicidadData.tiempo);
+  } else if (typeof publicidadData.tiempo === 'string' && !publicidadData.tiempo.includes('.')) {
+    // Si es string pero no tiene milisegundos, agregarlos
+    tiempoTimeSpan = publicidadData.tiempo + '.000';
+  }
   
   // El backend espera campos en PascalCase
   const dataToSend = {

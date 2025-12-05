@@ -29,7 +29,6 @@ import AdminComercios from './pages/admin/AdminComercios';
 import AdminPublicidades from './pages/admin/AdminPublicidades';
 import AdminUsuarios from './pages/admin/AdminUsuarios';
 import AdminResenias from './pages/admin/AdminResenias';
-import AdminReservas from './pages/admin/AdminReservas';
 import AdminRoles from './pages/admin/AdminRoles';
 import AdminTiposComercio from './pages/admin/AdminTiposComercio';
 
@@ -222,15 +221,6 @@ const AppRoutes = () => {
           </AdminRoute>
         } 
       />
-
-      <Route 
-        path="/admin/reservas" 
-        element={
-          <AdminRoute>
-            <AdminReservas />
-          </AdminRoute>
-        } 
-      />
       
       <Route 
         path="/admin/roles" 
@@ -254,9 +244,7 @@ const AppRoutes = () => {
       <Route 
         path="/payment/callback" 
         element={
-          <ProtectedRoute>
-            <PaymentCallback />
-          </ProtectedRoute>
+          <PaymentCallback />
         } 
       />
       

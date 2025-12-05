@@ -1,6 +1,6 @@
 // InputModal.jsx - Modal con input para confirmaciones
 import { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, X, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, X, ShieldAlert, Loader2 } from 'lucide-react';
 
 const InputModal = ({
   isOpen,
@@ -15,6 +15,7 @@ const InputModal = ({
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);  // ← Nuevo estado
   const inputRef = useRef(null);
 
   // Reset al abrir/cerrar
@@ -22,7 +23,7 @@ const InputModal = ({
     if (isOpen) {
       setInputValue('');
       setError('');
-      // Focus en el input cuando se abre
+      setIsLoading(false);  // ← Reset loading
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -31,27 +32,44 @@ const InputModal = ({
 
   if (!isOpen) return null;
 
-  const handleConfirm = () => {
-    // Validar que el valor coincida
-    if (inputValue.trim() !== expectedValue.trim()) {
+  const handleConfirm = async () => {
+    // Validaciones...
+    if (expectedValue && inputValue.trim() !== expectedValue.trim()) {
       setError('El texto ingresado no coincide');
       return;
     }
 
-    // Si coincide, ejecutar la confirmación
-    onConfirm(inputValue);
-    onClose();
+    if (!expectedValue && inputValue.trim().length === 0) {
+      setError('Debes ingresar un texto');
+      return;
+    }
+
+    // Mostrar loading y esperar respuesta
+    setIsLoading(true);
+    
+    try {
+      if (typeof onConfirm === 'function') {
+        await onConfirm(inputValue);
+      }
+    } catch (error) {
+      console.error('Error en onConfirm:', error);
+      setError('Ocurrió un error, intenta de nuevo');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !isLoading) {
       handleConfirm();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === 'Escape' && !isLoading) {
       onClose();
     }
   };
 
-  const isMatch = inputValue.trim() === expectedValue.trim();
+  const isMatch = expectedValue 
+    ? inputValue.trim() === expectedValue.trim()
+    : inputValue.trim().length > 0;
 
   return (
     <div 
@@ -153,20 +171,28 @@ const InputModal = ({
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium"
+                disabled={isLoading}
+                className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {cancelText}
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={!isMatch}
-                className={`flex-1 px-4 py-3 rounded-xl transition-all font-medium ${
-                  isMatch
+                disabled={!isMatch || isLoading}
+                className={`flex-1 px-4 py-3 rounded-xl transition-all font-medium flex items-center justify-center gap-2 ${
+                  isMatch && !isLoading
                     ? 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-lg shadow-red-500/25'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                {confirmText}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  confirmText
+                )}
               </button>
             </div>
           </div>

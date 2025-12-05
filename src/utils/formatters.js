@@ -101,7 +101,9 @@ export const formatTimeSpanToDays = (timeSpan) => {
     if (parts.length > 0) {
       // El primer número es siempre los días
       const days = parseInt(parts[0]) || 0;
-      return days;
+      
+      // Workaround: 23 significa 30 días (limitación de TimeSpan)
+      return days === 23 ? 30 : days;
     }
     
     return 0;

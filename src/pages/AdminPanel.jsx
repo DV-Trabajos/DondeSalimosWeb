@@ -18,7 +18,6 @@ import { getAllUsuarios } from '../services/usuariosService';
 import { getAllComercios } from '../services/comerciosService';
 import { getAllPublicidades } from '../services/publicidadesService';
 import { getAllResenias } from '../services/reseniasService';
-import { getAllReservas } from '../services/reservasService';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -31,7 +30,6 @@ const AdminPanel = () => {
   const [comercios, setComercios] = useState([]);
   const [publicidades, setPublicidades] = useState([]);
   const [resenias, setResenias] = useState([]);
-  const [reservas, setReservas] = useState([]);
 
   // CARGA DE DATOS
   useEffect(() => {
@@ -50,21 +48,18 @@ const AdminPanel = () => {
         usuariosData,
         comerciosData,
         publicidadesData,
-        reseniasData,
-        reservasData
+        reseniasData
       ] = await Promise.all([
         getAllUsuarios().catch(() => []),
         getAllComercios().catch(() => []),
         getAllPublicidades().catch(() => []),
-        getAllResenias().catch(() => []),
-        getAllReservas().catch(() => [])
+        getAllResenias().catch(() => [])
       ]);
 
       setUsuarios(usuariosData);
       setComercios(comerciosData);
       setPublicidades(publicidadesData);
       setResenias(reseniasData);
-      setReservas(reservasData);
     } catch (error) {
       console.error('Error cargando datos:', error);
     } finally {
@@ -220,25 +215,8 @@ const AdminPanel = () => {
       ? (reseniasConPuntuacion.reduce((sum, r) => sum + r.puntuacion, 0) / reseniasConPuntuacion.length).toFixed(1)
       : 0;
 
-    // RESERVAS
-    const totalReservas = reservas.length;
-    const reservasAprobadas = reservas.filter(r => r.estado === true).length;
-    const reservasPendientes = reservas.filter(r => r.estado === false && !r.motivoRechazo).length;
-    const reservasRechazadas = reservas.filter(r => r.estado === false && r.motivoRechazo).length;
-    
-    // Reservas de hoy
-    const hoyStr = ranges.today.toISOString().split('T')[0];
-    const reservasHoy = reservas.filter(r => {
-      const fechaReserva = new Date(r.fechaReserva).toISOString().split('T')[0];
-      return fechaReserva === hoyStr;
-    }).length;
-    
-    // Reservas por período
-    const reservasNuevas7d = filterByDateRange(reservas, 'fechaCreacion', ranges.hace7dias).length;
-    const reservasNuevas30d = filterByDateRange(reservas, 'fechaCreacion', ranges.hace30dias).length;
-
     // TOTALES PENDIENTES
-    const totalPendientes = comerciosPendientes + publicidadesPendientes + reservasPendientes + solicitudesReactivacion;
+    const totalPendientes = comerciosPendientes + publicidadesPendientes + solicitudesReactivacion;
 
     return {
       // Usuarios
@@ -258,14 +236,10 @@ const AdminPanel = () => {
       totalResenias, reseniasActivas, reseniasPendientes, reseniasRechazadas,
       reseniasNuevas7d, reseniasNuevas30d, promedioPuntuacion,
       
-      // Reservas
-      totalReservas, reservasAprobadas, reservasPendientes, reservasRechazadas,
-      reservasHoy, reservasNuevas7d, reservasNuevas30d,
-      
       // General
       totalPendientes
     };
-  }, [usuarios, comercios, publicidades, resenias, reservas]);
+  }, [usuarios, comercios, publicidades, resenias]);
 
   // DATOS PARA GRÁFICOS DE TENDENCIA (12 meses)
   const trendData = useMemo(() => {
@@ -295,8 +269,6 @@ const AdminPanel = () => {
 
   // DATOS PARA GRÁFICOS DE ACTIVIDAD (30 días)
   const activityData = useMemo(() => {
-    // Reservas por día (últimos 30 días)
-    const reservasPorDia = groupByDay(reservas, 'fechaCreacion', 30);
     
     // Reseñas por día
     const reseniasPorDia = groupByDay(resenias, 'fechaCreacion', 30);
@@ -309,11 +281,10 @@ const AdminPanel = () => {
     );
 
     return {
-      reservasPorDia,
       reseniasPorDia,
       registrosPorDia
     };
-  }, [usuarios, comercios, resenias, reservas]);
+  }, [usuarios, comercios, resenias]);
 
   // DATOS PARA CHART.JS
   // Gráfico: Crecimiento mensual (Line Chart)
@@ -362,16 +333,8 @@ const AdminPanel = () => {
 
   // Gráfico: Actividad últimos 30 días (Line Chart)
   const actividadRecienteData = useMemo(() => ({
-    labels: activityData.reservasPorDia.map(d => d.label),
+    labels: activityData.reseniasPorDia.map(d => d.label),
     datasets: [
-      {
-        label: 'Reservas',
-        data: activityData.reservasPorDia.map(d => d.count),
-        borderColor: 'rgb(244, 63, 94)',
-        backgroundColor: 'rgba(244, 63, 94, 0.1)',
-        fill: false,
-        tension: 0.4
-      },
       {
         label: 'Reseñas',
         data: activityData.reseniasPorDia.map(d => d.count),
@@ -580,13 +543,6 @@ const AdminPanel = () => {
               icon={<Megaphone className="w-5 h-5" />}
               warning={stats.publicidadesSinPagar > 0}
             />
-            <MiniStat 
-              label="Reservas Hoy" 
-              value={stats.reservasHoy} 
-              trend={`${stats.reservasPendientes} pendientes`}
-              icon={<Calendar className="w-5 h-5" />}
-              warning={stats.reservasPendientes > 0}
-            />
           </div>
         </div>
       </div>
@@ -621,14 +577,6 @@ const AdminPanel = () => {
                   className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors"
                 >
                   {stats.publicidadesPendientes} Publicidad{stats.publicidadesPendientes !== 1 ? 'es' : ''}
-                </button>
-              )}
-              {stats.reservasPendientes > 0 && (
-                <button
-                  onClick={() => navigate('/admin/reservas')}
-                  className="px-4 py-2 bg-rose-100 text-rose-700 rounded-lg text-sm font-medium hover:bg-rose-200 transition-colors"
-                >
-                  {stats.reservasPendientes} Reserva{stats.reservasPendientes !== 1 ? 's' : ''}
                 </button>
               )}
               {stats.solicitudesReactivacion > 0 && (
@@ -684,16 +632,6 @@ const AdminPanel = () => {
           lightBg="bg-amber-50"
           onClick={() => navigate('/admin/resenias')} 
         />
-        <StatCard 
-          icon={<Calendar className="w-6 h-6 text-white" />} 
-          title="Reservas" 
-          value={stats.totalReservas} 
-          subtitle={`${stats.reservasAprobadas} confirmadas`} 
-          gradient="from-rose-500 to-red-500"
-          lightBg="bg-rose-50"
-          badge={stats.reservasPendientes}
-          onClick={() => navigate('/admin/reservas')} 
-        />
       </div>
 
       {/* GRÁFICOS PRINCIPALES */}
@@ -725,7 +663,7 @@ const AdminPanel = () => {
         <div className="lg:col-span-2">
           <ChartCard
             title="Actividad Reciente"
-            subtitle="Reservas y reseñas - Últimos 30 días"
+            subtitle="Reseñas - Últimos 30 días"
             icon={<Activity className="w-5 h-5 text-white" />}
             iconGradient="from-purple-500 to-pink-500"
           >
@@ -781,13 +719,6 @@ const AdminPanel = () => {
               <p className="text-3xl font-bold text-emerald-600">{stats.comerciosNuevos30d}</p>
               <p className="text-sm text-emerald-600 font-medium">Comercios nuevos</p>
               <p className="text-xs text-emerald-500 mt-1">Aprobación: {stats.tasaAprobacion}%</p>
-            </div>
-
-            {/* Reservas */}
-            <div className="bg-rose-50 rounded-xl p-4 text-center">
-              <p className="text-3xl font-bold text-rose-600">{stats.reservasNuevas30d}</p>
-              <p className="text-sm text-rose-600 font-medium">Reservas</p>
-              <p className="text-xs text-rose-500 mt-1">{stats.reservasHoy} para hoy</p>
             </div>
 
             {/* Reseñas */}

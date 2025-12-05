@@ -545,8 +545,7 @@ const Home = () => {
               Registrate gratis y empezá a recibir reservas online. 
               Aumentá tu visibilidad y llegá a miles de clientes potenciales.
             </p>
-            <Link
-              to="/login"
+            <Link to="/login" state={{ register: true, role: 3 }}
               className="inline-flex items-center gap-2 px-8 py-4 bg-white text-purple-900 rounded-xl font-semibold text-lg hover:bg-gray-100 transition"
             >
               Registrar mi comercio

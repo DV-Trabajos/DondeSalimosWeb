@@ -344,9 +344,10 @@ const Header = () => {
                 </Link>
                 <Link
                   to="/login"
+                  state={{ register: true }}
                   className="px-5 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:opacity-90 transition-all duration-200 font-medium shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-105"
                 >
-                  Comenzar
+                  Registrarse
                 </Link>
               </div>
             )}
@@ -519,6 +520,14 @@ const Header = () => {
                     className="block px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl text-center font-medium shadow-lg"
                   >
                     Iniciar Sesión
+                  </Link>
+                  <Link
+                    to="/login"
+                    state={{ register: true }}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl text-center font-medium shadow-lg mt-2"
+                  >
+                    Registrarse
                   </Link>
                 </>
               )}
