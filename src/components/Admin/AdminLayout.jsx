@@ -20,7 +20,7 @@ const AdminLayout = ({
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const displayName = user?.nombreUsuario || user?.nombre || 'Admin';
@@ -41,7 +41,7 @@ const AdminLayout = ({
     'reservas': 'Reservas',
     'reportes': 'Reportes',
     'roles': 'Roles',
-    'tipos-comercio': 'Tipos de Comercio',   
+    'tipos-comercio': 'Tipos de Comercio' 
   };
 
   // Construir breadcrumbs
@@ -76,7 +76,7 @@ const AdminLayout = ({
 
             {/* Acciones del lado derecho */}
             <div className="flex items-center gap-3">
-              {/* Campana de notificaciones */}
+              {/* CAMPANITA DE NOTIFICACIONES */}
               <NotificationPanel />
 
               {/* Separador */}
@@ -86,14 +86,18 @@ const AdminLayout = ({
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 transition"
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all duration-200 ${
+                    userMenuOpen 
+                      ? 'bg-purple-50 ring-2 ring-purple-200' 
+                      : 'hover:bg-gray-100'
+                  }`}
                 >
-                  <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+                  <div className="w-9 h-9 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
                     <span className="text-white font-semibold text-sm">{initials}</span>
                   </div>
                   <div className="hidden md:block text-left">
-                    <p className="font-semibold text-gray-900 text-sm">{displayName}</p>
-                    <p className="text-xs text-gray-500">Administrador</p>
+                    <p className="text-sm font-medium text-gray-700 max-w-[100px] truncate">{displayName}</p>
+                    <p className="text-xs text-gray-400">Admin</p>
                   </div>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -105,37 +109,59 @@ const AdminLayout = ({
                       className="fixed inset-0 z-10"
                       onClick={() => setUserMenuOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-20 overflow-hidden">
-                      {/* Header del dropdown */}
-                      <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
-                        <p className="font-semibold text-gray-900">{displayName}</p>
-                        <p className="text-xs text-gray-500">{user?.correo || 'dondesalimosad@gmail.com'}</p>
+                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {/* Info del usuario */}
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-white font-bold text-lg">{initials}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-gray-900 truncate">{displayName}</p>
+                            <p className="text-xs text-gray-500 truncate">{user?.correo}</p>
+                          </div>
+                        </div>
+                        {/* Badge de Administrador */}
+                        <div className="mt-3">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500/10 to-purple-500/20 text-purple-700 text-xs font-semibold rounded-lg border border-purple-200">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Administrador
+                          </span>
+                        </div>
                       </div>
                       
-                      <div className="py-1">
+                      {/* Links */}
+                      <div className="py-2 px-2">
                         <button
                           onClick={() => {
                             navigate('/profile');
                             setUserMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
+                          className="flex items-center gap-3 px-3 py-2.5 w-full text-left text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
                         >
                           <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                             <User className="w-4 h-4 text-gray-600" />
                           </div>
-                          <span className="font-medium">Mi Perfil</span>
+                          <div>
+                            <p className="font-medium text-sm">Mi Perfil</p>
+                            <p className="text-xs text-gray-400">Ver y editar tu información</p>
+                          </div>
                         </button>
                       </div>
                       
-                      <div className="border-t border-gray-100 py-1">
+                      {/* Logout */}
+                      <div className="border-t border-gray-100 pt-2 px-2">
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 transition"
+                          className="flex items-center gap-3 px-3 py-2.5 w-full text-left text-red-600 hover:bg-red-50 rounded-xl transition-colors"
                         >
                           <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
                             <LogOut className="w-4 h-4 text-red-600" />
                           </div>
-                          <span className="font-medium">Cerrar Sesión</span>
+                          <div>
+                            <p className="font-medium text-sm">Cerrar Sesión</p>
+                            <p className="text-xs text-red-400">Salir de tu cuenta</p>
+                          </div>
                         </button>
                       </div>
                     </div>
@@ -210,7 +236,7 @@ const AdminLayout = ({
         </main>
       </div>
 
-      {/* Overlay para celu */}
+      {/* Overlay para móvil */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm lg:hidden z-30"
