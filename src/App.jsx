@@ -17,6 +17,7 @@ import PoliticaPrivacidad from './pages/PoliticaPrivacidad';
 // Páginas de usuario autenticado
 import Profile from './pages/Profile';
 import MisReservas from './pages/MisReservas';
+import ReservasRecibidas from './pages/ReservasRecibidas';
 import MisResenias from './pages/MisResenias';
 
 // Páginas de dueño de comercio (rol 3)
@@ -65,6 +66,46 @@ const ComercioRoute = ({ children }) => {
   
   // Rol 3 = Usuario Comercio, Rol 2 = Admin (también puede acceder)
   if (user?.iD_RolUsuario !== 3 && user?.iD_RolUsuario !== 2) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+};
+
+// MIS RESERVAS - Solo usuarios comunes (rol 16)
+const MisReservasRoute = ({ children }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <LoadingScreen message="Cargando..." />;
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Solo rol 16 (Usuario Común) puede acceder
+  if (user?.iD_RolUsuario !== 16) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+};
+
+// RESERVAS RECIBIDAS - Solo comercios (rol 3)
+const ReservasRecibidasRoute = ({ children }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <LoadingScreen message="Cargando..." />;
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Solo rol 3 (Usuario Comercio) puede acceder
+  if (user?.iD_RolUsuario !== 3) {
     return <Navigate to="/" replace />;
   }
   
@@ -137,13 +178,23 @@ const AppRoutes = () => {
         } 
       />
       
-      {/* RESERVAS - Se adapta automáticamente según el rol */}
+      {/* MIS RESERVAS - Solo usuarios comunes (rol 16)*/}
       <Route 
         path="/mis-reservas" 
         element={
-          <ProtectedRoute>
+          <MisReservasRoute>
             <MisReservas />
-          </ProtectedRoute>
+          </MisReservasRoute>
+        } 
+      />
+
+      {/* RESERVAS RECIBIDAS - Solo comercios (rol 3)*/}
+      <Route 
+        path="/reservas-recibidas" 
+        element={
+          <ReservasRecibidasRoute>
+            <ReservasRecibidas />
+          </ReservasRecibidasRoute>
         } 
       />
 

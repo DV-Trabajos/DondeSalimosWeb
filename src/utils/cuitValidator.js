@@ -1,4 +1,4 @@
-// cuitValidator.js - Validador de CUIT/CUIL argentino
+// cuitValidator.js - Validador de CUIT/CUIL/DNI argentino
 
 // Formatea un CUIT/CUIL agregando guiones
 export const formatCUIT = (cuit) => {
@@ -55,6 +55,25 @@ export const validateCUIT = (cuit) => {
   return verificador === parseInt(cuitLimpio[10]);
 };
 
+// Valida un DNI argentino (7 u 8 dígitos)
+export const validateDNI = (dni) => {
+  if (!dni) return false;
+  
+  const dniLimpio = dni.replace(/\D/g, '');
+  
+  // Verificar que tenga 7 u 8 dígitos
+  if (dniLimpio.length < 7 || dniLimpio.length > 8) {
+    return false;
+  }
+  
+  // Verificar que sean solo números
+  if (!/^\d+$/.test(dniLimpio)) {
+    return false;
+  }
+  
+  return true;
+};
+
 // Obtiene el tipo de CUIT según el prefijo
 export const getTipoCUIT = (cuit) => {
   if (!cuit) return 'Desconocido';
@@ -78,54 +97,94 @@ export const getTipoCUIT = (cuit) => {
   return tipos[prefijo] || 'Otro';
 };
 
-// Genera un mensaje de error para CUIT inválido
-export const getErrorCUIT = (cuit) => {
-  if (!cuit) return 'El CUIT es requerido';
-  
-  const cuitLimpio = unformatCUIT(cuit);
-  
-  if (cuitLimpio.length === 0) return 'El CUIT es requerido';
-  
-  if (cuitLimpio.length !== 11) {
-    return 'El CUIT debe tener 11 dígitos';
+// Genera un mensaje de error para documento inválido (CUIT/CUIL/DNI)
+export const getErrorDocumento = (documento, tipoDocumento = 'CUIT') => {
+  if (!documento) {
+    return `El ${tipoDocumento} es requerido`;
   }
   
-  if (!/^\d+$/.test(cuitLimpio)) {
-    return 'El CUIT solo debe contener números';
+  const documentoLimpio = documento.replace(/\D/g, '');
+  
+  if (documentoLimpio.length === 0) {
+    return `El ${tipoDocumento} es requerido`;
   }
   
-  if (!validateCUIT(cuit)) {
-    return 'El CUIT ingresado no es válido';
+  // Validar según tipo de documento
+  if (tipoDocumento === 'DNI') {
+    if (documentoLimpio.length < 7 || documentoLimpio.length > 8) {
+      return 'El DNI debe tener 7 u 8 dígitos';
+    }
+    
+    if (!/^\d+$/.test(documentoLimpio)) {
+      return 'El DNI solo debe contener números';
+    }
+    
+    if (!validateDNI(documento)) {
+      return 'El DNI ingresado no es válido';
+    }
+  } else {
+    // CUIT o CUIL
+    if (documentoLimpio.length !== 11) {
+      return `El ${tipoDocumento} debe tener 11 dígitos`;
+    }
+    
+    if (!/^\d+$/.test(documentoLimpio)) {
+      return `El ${tipoDocumento} solo debe contener números`;
+    }
+    
+    if (!validateCUIT(documento)) {
+      return `El ${tipoDocumento} ingresado no es válido`;
+    }
   }
   
   return null;
 };
 
-// Formatea mientras el usuario escribe
-export const formatCUITOnType = (value, previousValue = '') => {
+// Mantener compatibilidad con código existente
+export const getErrorCUIT = (cuit) => {
+  return getErrorDocumento(cuit, 'CUIT');
+};
+
+// Formatea mientras el usuario escribe (CUIT/CUIL o DNI)
+export const formatDocumentoOnType = (value, tipoDocumento = 'CUIT') => {
   // Eliminar todo lo que no sea número
   let numeros = value.replace(/\D/g, '');
   
-  // Limitar a 11 dígitos
-  if (numeros.length > 11) {
-    numeros = numeros.slice(0, 11);
-  }
-  
-  // Formatear según la cantidad de dígitos
-  if (numeros.length <= 2) {
+  if (tipoDocumento === 'DNI') {
+    // DNI: solo números, máximo 8 dígitos
+    if (numeros.length > 8) {
+      numeros = numeros.slice(0, 8);
+    }
     return numeros;
-  } else if (numeros.length <= 10) {
-    return `${numeros.slice(0, 2)}-${numeros.slice(2)}`;
   } else {
-    return `${numeros.slice(0, 2)}-${numeros.slice(2, 10)}-${numeros.slice(10)}`;
+    // CUIT/CUIL: formato XX-XXXXXXXX-X
+    if (numeros.length > 11) {
+      numeros = numeros.slice(0, 11);
+    }
+    
+    if (numeros.length <= 2) {
+      return numeros;
+    } else if (numeros.length <= 10) {
+      return `${numeros.slice(0, 2)}-${numeros.slice(2)}`;
+    } else {
+      return `${numeros.slice(0, 2)}-${numeros.slice(2, 10)}-${numeros.slice(10)}`;
+    }
   }
+};
+
+// Mantener compatibilidad con código existente
+export const formatCUITOnType = (value, previousValue = '') => {
+  return formatDocumentoOnType(value, 'CUIT');
 };
 
 export default {
   formatCUIT,
   unformatCUIT,
   validateCUIT,
+  validateDNI,
   getTipoCUIT,
   getErrorCUIT,
+  getErrorDocumento,
   formatCUITOnType,
+  formatDocumentoOnType,
 };

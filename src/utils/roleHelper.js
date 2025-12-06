@@ -107,7 +107,7 @@ export const hasAdminPermissions = (roleId) => {
   return roleId === ROLES.ADMINISTRADOR;
 };
 
-// Verifica si un rol tiene permisos de administrador
+// Verifica si un rol tiene permisos de comercio
 export const hasComercioPermissions = (roleId) => {
   return roleId === ROLES.USUARIO_COMERCIO;
 };
@@ -119,8 +119,7 @@ export const canManageComercios = (roleId) => {
 
 // Verifica si un rol puede hacer reservas
 export const canMakeReservas = (roleId) => {
-  // Todos los roles pueden hacer reservas
-  return isValidRole(roleId);
+  return roleId === ROLES.USUARIO_COMUN;
 };
 
 // Verifica si un rol puede dejar reseñas
@@ -135,7 +134,6 @@ export const getRoleSlug = (roleId) => {
     2: 'admin',
     3: 'business',
     16: 'user',   
-
   };
   return slugs[roleId] || 'unknown';
 };
@@ -153,6 +151,7 @@ export default {
   isAdministrador,
   getAllRoles,
   hasAdminPermissions,
+  hasComercioPermissions,
   canManageComercios,
   canMakeReservas,
   canMakeResenias,

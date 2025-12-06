@@ -1,10 +1,10 @@
-// Header.jsx - Componente Header
+// Header.jsx - Componente Header con navegación condicional según rol
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Home, Calendar, User, LogOut, Menu, X, Store, 
   Megaphone, LayoutDashboard, ChevronDown, Star, Bell,
-  MapPin, Sparkles
+  CalendarCheck
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import NotificationPanel from '../Notifications/NotificationPanel';
@@ -59,6 +59,23 @@ const Header = () => {
   // Determinar el rol del usuario
   const isAdmin = user?.iD_RolUsuario === 2;
   const isComercio = user?.iD_RolUsuario === 3;
+  const isUsuarioComun = user?.iD_RolUsuario === 16;
+
+  // Link de Reservas según rol
+  const getReservasLink = () => {
+    if (isComercio && !isAdmin) {
+      return '/reservas-recibidas'; // Comercio ve reservas recibidas
+    }
+    return '/mis-reservas'; // Usuario común y admin ven mis reservas
+  };
+
+  // Link de Reservas según rol
+  const getReservasText = () => {
+    if (isComercio && !isAdmin) {
+      return 'Reservas Recibidas';
+    }
+    return 'Mis Reservas';
+  };
 
   // Obtener nombre para mostrar
   const displayName = user?.nombreUsuario || user?.nombre || 'Usuario';
@@ -78,70 +95,64 @@ const Header = () => {
         relative flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 font-medium text-sm
         ${active
           ? highlight
-            ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
-            : 'bg-gradient-to-r from-pink-500/10 to-purple-500/10 text-purple-700 border border-purple-200'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-purple-500/30'
+            : 'bg-purple-50 text-purple-700 font-semibold'
+          : 'text-gray-600 hover:bg-gray-50'
         }
       `}
     >
       {icon}
       <span>{children}</span>
       {badge && (
-        <span className="absolute -top-1 -right-1 w-5 h-5 bg-pink-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+        <span className={`
+          px-2 py-0.5 rounded-full text-xs font-bold
+          ${active ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'}
+        `}>
           {badge}
         </span>
       )}
     </Link>
   );
 
-  // Componente para links de navegación pública (no logueados)
+  // Componente de Link público
   const PublicNavLink = ({ href, onClick, children }) => (
     <a
       href={href}
       onClick={onClick}
-      className="px-4 py-2 text-gray-600 hover:text-purple-600 font-medium transition-colors relative group"
+      className="px-4 py-2 text-gray-600 hover:text-purple-600 transition-colors font-medium text-sm rounded-xl hover:bg-purple-50"
     >
       {children}
-      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-pink-500 to-purple-600 group-hover:w-full transition-all duration-300"></span>
     </a>
   );
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+      <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="relative">
-              <img 
-                src="/logo.png" 
-                alt="Dónde Salimos?" 
-                className="w-10 h-10 rounded-xl shadow-lg group-hover:shadow-purple-500/30 transition-all duration-300 object-contain"
-              />
-              <div className="absolute -inset-1 bg-gradient-to-r from-pink-500 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/30 group-hover:shadow-purple-500/50 transition-all duration-300 group-hover:scale-105">
+              <Calendar className="w-5 h-5 text-white" />
             </div>
-            <div className="hidden sm:block">
-              <span className="font-bold text-xl bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
-                Dónde Salimos?
-              </span>
-            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+              Dónde Salimos?
+            </span>
           </Link>
 
-          {/* Navegación Desktop */}
-          <nav className="hidden md:flex items-center">
+          {/* Navegación desktop */}
+          <nav className="hidden md:flex items-center gap-1">
             {isAuthenticated ? (
-              <div className="flex items-center gap-1 bg-gray-50/80 rounded-2xl p-1.5 border border-gray-100">
-                {/* Inicio */}
-                <NavLink 
-                  to="/" 
-                  active={isActive('/')} 
-                  icon={<Home className="w-4 h-4" />}
-                >
-                  Inicio
-                </NavLink>
+              <div className="border border-gray-200 rounded-xl p-1 bg-gray-50/30">
+                <div className="flex items-center gap-1">
+                  <NavLink 
+                    to="/" 
+                    active={isActive('/')} 
+                    icon={<Home className="w-4 h-4" />}
+                  >
+                    Inicio
+                  </NavLink>
 
-                {/* NAVEGACIÓN PARA ADMIN */}
+                {/* Admin Panel */}
                 {isAdmin && (
                   <NavLink 
                     to="/admin" 
@@ -153,7 +164,7 @@ const Header = () => {
                   </NavLink>
                 )}
 
-                {/* NAVEGACIÓN PARA COMERCIO */}
+                {/* Solo para comercios */}
                 {isComercio && !isAdmin && (
                   <>
                     <NavLink 
@@ -162,13 +173,6 @@ const Header = () => {
                       icon={<Store className="w-4 h-4" />}
                     >
                       Mis Comercios
-                    </NavLink>
-                    <NavLink 
-                      to="/mis-reservas"
-                      active={isActive('/mis-reservas')} 
-                      icon={<Calendar className="w-4 h-4" />}
-                    >
-                      Reservas
                     </NavLink>
                     <NavLink 
                       to="/mis-publicidades" 
@@ -180,28 +184,32 @@ const Header = () => {
                   </>
                 )}
 
-                {/* NAVEGACIÓN PARA USUARIO COMÚN */}
-                {!isAdmin && !isComercio && (
-                  <>
-                    <NavLink 
-                      to="/mis-reservas"
-                      active={isActive('/mis-reservas')} 
-                      icon={<Calendar className="w-4 h-4" />}
-                    >
-                      Mis Reservas
-                    </NavLink>
-                    <NavLink 
-                      to="/mis-resenias"
-                      active={isActive('/mis-resenias')} 
-                      icon={<Star className="w-4 h-4" />}
-                    >
-                      Mis Reseñas
-                    </NavLink>
-                  </>
+                {/* Reservas - Usuarios comunes y comercios */}
+                {!isAdmin && (
+                  <NavLink 
+                    to={getReservasLink()} 
+                    active={isActive('/mis-reservas') || isActive('/reservas-recibidas')} 
+                    icon={<Calendar className="w-4 h-4" />}
+                  >
+                    {getReservasText()}
+                  </NavLink>
+                )}
+
+                {/* Mis Reseñas - Usuarios comunes y comercios */}
+                {!isAdmin && (
+                  <NavLink 
+                    to="/mis-resenias" 
+                    active={isActive('/mis-resenias')} 
+                    icon={<Star className="w-4 h-4" />}
+                  >
+                    Mis Reseñas
+                  </NavLink>
                 )}
               </div>
+              </div>
             ) : (
-              <div className="flex items-center gap-1">
+              <div className="border border-gray-200 rounded-xl p-1 bg-gray-50/30">
+                <div className="flex items-center gap-1">
                 <PublicNavLink 
                   href="#mapa"
                   onClick={(e) => handleHashNavigation(e, '#mapa')}
@@ -226,6 +234,7 @@ const Header = () => {
                 >
                   Contacto
                 </PublicNavLink>
+              </div>
               </div>
             )}
           </nav>
@@ -263,7 +272,7 @@ const Header = () => {
                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
-                  {/* Dropdown del usuario */}
+                  {/* Dropdown menú */}
                   {userMenuOpen && (
                     <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                       {/* Info del usuario */}
@@ -326,7 +335,7 @@ const Header = () => {
                           </div>
                           <div>
                             <p className="font-medium text-sm">Cerrar Sesión</p>
-                            <p className="text-xs text-red-400">Salir de tu cuenta</p>
+                            <p className="text-xs text-gray-400">Salir de tu cuenta</p>
                           </div>
                         </button>
                       </div>
@@ -335,27 +344,27 @@ const Header = () => {
                 </div>
               </>
             ) : (
-              <div className="flex items-center gap-2">
+              <>
                 <Link
                   to="/login"
-                  className="hidden sm:block px-4 py-2 text-gray-600 hover:text-purple-600 font-medium transition-colors"
+                  className="hidden sm:block px-4 py-2 text-purple-600 hover:bg-purple-50 rounded-xl transition-colors font-medium text-sm"
                 >
                   Iniciar Sesión
                 </Link>
                 <Link
                   to="/login"
                   state={{ register: true }}
-                  className="px-5 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:opacity-90 transition-all duration-200 font-medium shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-105"
+                  className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:opacity-90 transition-opacity font-medium text-sm shadow-lg shadow-purple-500/30"
                 >
                   Registrarse
                 </Link>
-              </div>
+              </>
             )}
 
             {/* Botón menú móvil */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
+              className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -413,14 +422,6 @@ const Header = () => {
                         Mis Comercios
                       </NavLink>
                       <NavLink 
-                        to="/mis-reservas"
-                        active={isActive('/mis-reservas')} 
-                        icon={<Calendar className="w-4 h-4" />}
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        Reservas
-                      </NavLink>
-                      <NavLink 
                         to="/mis-publicidades" 
                         active={isActive('/mis-publicidades')} 
                         icon={<Megaphone className="w-4 h-4" />}
@@ -431,44 +432,49 @@ const Header = () => {
                     </>
                   )}
 
-                  {!isAdmin && !isComercio && (
-                    <>
-                      <NavLink 
-                        to="/mis-reservas"
-                        active={isActive('/mis-reservas')} 
-                        icon={<Calendar className="w-4 h-4" />}
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        Mis Reservas
-                      </NavLink>
-                      <NavLink 
-                        to="/mis-resenias"
-                        active={isActive('/mis-resenias')} 
-                        icon={<Star className="w-4 h-4" />}
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        Mis Reseñas
-                      </NavLink>
-                    </>
+                  {/* Reservas - Usuarios comunes y comercios */}
+                  {!isAdmin && (
+                    <NavLink 
+                      to={getReservasLink()} 
+                      active={isActive('/mis-reservas') || isActive('/reservas-recibidas')} 
+                      icon={<Calendar className="w-4 h-4" />}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {getReservasText()}
+                    </NavLink>
+                  )}
+
+                  {/* Mis Reseñas - Solo usuarios comunes y comercios */}
+                  {!isAdmin && (
+                    <NavLink 
+                      to="/mis-resenias" 
+                      active={isActive('/mis-resenias')} 
+                      icon={<Star className="w-4 h-4" />}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Mis Reseñas
+                    </NavLink>
                   )}
 
                   <div className="border-t border-gray-100 my-3"></div>
-                  
-                  <NavLink 
-                    to="/profile"
-                    active={isActive('/profile')} 
-                    icon={<User className="w-4 h-4" />}
-                    onClick={() => setMobileMenuOpen(false)}
+
+                  <button
+                    onClick={() => {
+                      navigate('/profile');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors text-left"
                   >
-                    Mi Perfil
-                  </NavLink>
+                    <User className="w-4 h-4" />
+                    <span>Mi Perfil</span>
+                  </button>
 
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 px-4 py-2.5 w-full text-left rounded-xl text-red-600 hover:bg-red-50 transition font-medium"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left"
                   >
                     <LogOut className="w-4 h-4" />
-                    Cerrar Sesión
+                    <span>Cerrar Sesión</span>
                   </button>
                 </>
               ) : (

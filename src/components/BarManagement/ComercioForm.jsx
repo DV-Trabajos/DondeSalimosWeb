@@ -4,12 +4,12 @@ import {
   X, Save, Loader2, MapPin, Clock, Image as ImageIcon, 
   AlertCircle, Store, Mail, Phone, FileText, Users, 
   Music, ChevronDown, Sparkles, Building2, CreditCard,
-  ArrowLeft, CheckCircle
+  ArrowLeft, CheckCircle, Hash
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import Header from '../Shared/Header';
-import { formatCUITOnType, getErrorCUIT } from '../../utils/cuitValidator';
+import { formatCUITOnType, getErrorCUIT, formatDocumentoOnType, getErrorDocumento } from '../../utils/cuitValidator';
 import { convertImageToBase64, convertBase64ToImage } from '../../utils/formatters';
 import { createComercio, updateComercio } from '../../services/comerciosService';
 import { getAllTiposComercio, filterActiveTipos } from '../../services/tiposComercioService';
@@ -78,7 +78,6 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
       const tiposActivos = filterActiveTipos(tipos);
       setTiposComercio(tiposActivos);
     } catch (error) {
-      console.error('Error cargando tipos de comercio:', error);
       showError('Error al cargar los tipos de comercio');
     } finally {
       setLoadingTipos(false);
@@ -134,11 +133,28 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
     const { name, value } = e.target;
     let newValue = value;
 
-    // Formateo CUIT
+    // Formateo de documento según tipo
     if (name === 'nroDocumento') {
-      newValue = formatCUITOnType(value);
-      const errorCUIT = getErrorCUIT(newValue);
-      setErrors(prev => ({ ...prev, nroDocumento: errorCUIT }));
+      newValue = formatDocumentoOnType(value, formData.tipoDocumento);
+      const errorDocumento = getErrorDocumento(newValue, formData.tipoDocumento);
+      setErrors(prev => ({ ...prev, nroDocumento: errorDocumento }));
+    }
+
+    // Si cambia el tipo de documento, reformatear el número
+    if (name === 'tipoDocumento') {
+      const nroActual = formData.nroDocumento;
+      if (nroActual) {
+        const reformatted = formatDocumentoOnType(nroActual, value);
+        setFormData(prev => ({ 
+          ...prev, 
+          tipoDocumento: value,
+          nroDocumento: reformatted 
+        }));
+        // Validar con el nuevo tipo
+        const errorDocumento = getErrorDocumento(reformatted, value);
+        setErrors(prev => ({ ...prev, nroDocumento: errorDocumento }));
+        return;
+      }
     }
 
     // Solo números para capacidad y mesas
@@ -176,10 +192,9 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
     try {
       const base64 = await convertImageToBase64(file);
       setFormData(prev => ({ ...prev, foto: base64 }));
-      setImagePreview(base64);
+      setImagePreview(convertBase64ToImage(base64));
       setErrors(prev => ({ ...prev, foto: null }));
     } catch (error) {
-      console.error('Error procesando imagen:', error);
       setErrors(prev => ({ ...prev, foto: 'Error al procesar la imagen' }));
     }
   };
@@ -209,9 +224,9 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
       newErrors.telefono = 'El teléfono debe tener al menos 8 dígitos';
     }
 
-    const cuitError = getErrorCUIT(formData.nroDocumento);
-    if (cuitError) {
-      newErrors.nroDocumento = cuitError;
+    const documentoError = getErrorDocumento(formData.nroDocumento, formData.tipoDocumento);
+    if (documentoError) {
+      newErrors.nroDocumento = documentoError;
     }
 
     if (formData.horaIngreso && !/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(formData.horaIngreso)) {
@@ -281,7 +296,6 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
       if (onClose) onClose();
 
     } catch (error) {
-      console.error('Error guardando comercio:', error);
       
       let errorMessage = 'No se pudo guardar el comercio.';
       if (error.response?.data) {
@@ -326,7 +340,7 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
           <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
         </div>
 
-        <div className="relative container mx-auto px-4 py-8">
+        <div className="relative container mx-auto px-4 py-12">
           <div className="flex items-center gap-4">
             <button
               onClick={onClose}
@@ -440,15 +454,39 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
                   </div>
                 </FormField>
 
-                {/* CUIT */}
-                <FormField icon={CreditCard} label="CUIT" required error={errors.nroDocumento} hint="Formato: XX-XXXXXXXX-X">
+                {/* Tipo de Documento */}
+                <FormField icon={FileText} label="Tipo de Documento" required>
+                  <div className="relative">
+                    <select
+                      name="tipoDocumento"
+                      value={formData.tipoDocumento}
+                      onChange={handleChange}
+                      className={selectClass(false)}
+                      disabled={isLoading}
+                    >
+                      <option value="CUIT">CUIT</option>
+                      <option value="CUIL">CUIL</option>
+                      <option value="DNI">DNI</option>
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                  </div>
+                </FormField>
+
+                {/* Número de Documento */}
+                <FormField 
+                  icon={CreditCard} 
+                  label={`Número de ${formData.tipoDocumento}`} 
+                  required 
+                  error={errors.nroDocumento} 
+                  hint={formData.tipoDocumento === 'CUIT' || formData.tipoDocumento === 'CUIL' ? "Formato: XX-XXXXXXXX-X" : "Ingresá el número de DNI"}
+                >
                   <input
                     type="text"
                     name="nroDocumento"
                     value={formData.nroDocumento}
                     onChange={handleChange}
-                    placeholder="XX-XXXXXXXX-X"
-                    maxLength={13}
+                    placeholder={formData.tipoDocumento === 'CUIT' || formData.tipoDocumento === 'CUIL' ? "XX-XXXXXXXX-X" : "12345678"}
+                    maxLength={formData.tipoDocumento === 'DNI' ? 8 : 13}
                     className={inputClass(errors.nroDocumento)}
                     disabled={isLoading}
                   />
@@ -616,22 +654,28 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
                     ${errors.foto ? 'border-red-300 bg-red-50' : ''}
                   `}>
                     {imagePreview ? (
-                      <div className="relative">
+                      <div className="space-y-4">
                         <img 
                           src={imagePreview} 
                           alt="Preview" 
-                          className="max-h-48 mx-auto rounded-xl shadow-lg"
+                          className="max-h-64 mx-auto rounded-xl object-cover"
                         />
-                        <p className="text-sm text-purple-600 mt-4">Click para cambiar la imagen</p>
+                        <p className="text-sm text-gray-600">Click para cambiar imagen</p>
                       </div>
                     ) : (
-                      <>
-                        <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                          <ImageIcon className="w-8 h-8 text-gray-400" />
+                      <div className="space-y-4">
+                        <div className="w-16 h-16 mx-auto bg-purple-100 rounded-xl flex items-center justify-center">
+                          <ImageIcon className="w-8 h-8 text-purple-600" />
                         </div>
-                        <p className="text-gray-600 font-medium">Click para subir una imagen</p>
-                        <p className="text-xs text-gray-400 mt-1">JPG, PNG (máx. 5MB)</p>
-                      </>
+                        <div>
+                          <p className="text-lg font-semibold text-gray-700">
+                            Subí una imagen del comercio
+                          </p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            PNG, JPG, hasta 5MB
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </div>
                   <input
@@ -651,20 +695,20 @@ const ComercioForm = ({ comercio, onClose, onSuccess }) => {
               </div>
             </div>
 
-            {/* BOTONES */}
-            <div className="flex gap-4 pt-4">
+            {/* Botones de Acción */}
+            <div className="flex gap-4 justify-end sticky bottom-4 bg-gray-50 p-4 rounded-2xl border border-gray-200 shadow-lg">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isLoading}
-                className="flex-1 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors disabled:opacity-50"
+                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 shadow-lg shadow-purple-500/25 flex items-center gap-2"
               >
                 {isLoading ? (
                   <>

@@ -14,8 +14,8 @@ const PlaceDetailModal = ({
   onOpenReserva,
   onOpenReview,
 }) => {
-  // Obtener información del usuario para verificar si es admin
-  const { isAdmin } = useAuth();
+  // Obtener información del usuario para verificar si es admin o dueño de comercio
+  const { isAdmin, isBarOwner } = useAuth();
   
   const [reviews, setReviews] = useState([]);
   const [showAllReviews, setShowAllReviews] = useState(false);
@@ -237,22 +237,9 @@ const PlaceDetailModal = ({
               </a>
             )}
 
-            {place.correo && (
-              <a 
-                href={`mailto:${place.correo}`}
-                className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition"
-              >
-                <Mail className="w-5 h-5 text-purple-500" />
-                <div>
-                  <p className="text-xs text-gray-500">Email</p>
-                  <p className="text-sm font-medium text-purple-600 truncate">{place.correo}</p>
-                </div>
-              </a>
-            )}
-
             {place.capacidad && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <Users className="w-5 h-5 text-purple-500" />
+                <Users className="w-5 h-5 text-blue-500" />
                 <div>
                   <p className="text-xs text-gray-500">Capacidad</p>
                   <p className="text-sm font-medium text-gray-900">{place.capacidad} personas</p>
@@ -260,135 +247,78 @@ const PlaceDetailModal = ({
               </div>
             )}
 
-            {place.generoMusical && (
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <Music className="w-5 h-5 text-purple-500" />
+            {place.horaApertura && place.horaCierre && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl col-span-2">
+                <Clock className="w-5 h-5 text-orange-500" />
                 <div>
-                  <p className="text-xs text-gray-500">Género</p>
-                  <p className="text-sm font-medium text-gray-900">{place.generoMusical}</p>
+                  <p className="text-xs text-gray-500">Horario</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {place.horaApertura.slice(0, 5)} - {place.horaCierre.slice(0, 5)}
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Horarios */}
-            {(place.horaIngreso || place.horaCierre) && (
+            {place.tipoMusica && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl col-span-2">
-                <Clock className="w-5 h-5 text-purple-500" />
+                <Music className="w-5 h-5 text-green-500" />
                 <div>
-                  <p className="text-xs text-gray-500">Horario</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {place.horaIngreso?.substring(0, 5) || '--:--'} - {place.horaCierre?.substring(0, 5) || '--:--'}
-                  </p>
+                  <p className="text-xs text-gray-500">Música</p>
+                  <p className="text-sm font-medium text-gray-900">{place.tipoMusica}</p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Estado abierto/cerrado calculado */}
-          {place.isLocal && place.horaIngreso && place.horaCierre && (
-            <div className="flex items-center gap-2">
-              {(() => {
-                const now = new Date();
-                const currentTime = now.getHours() * 60 + now.getMinutes();
-                const [openH, openM] = (place.horaIngreso || '00:00').split(':').map(Number);
-                const [closeH, closeM] = (place.horaCierre || '00:00').split(':').map(Number);
-                const openTime = openH * 60 + openM;
-                const closeTime = closeH * 60 + closeM;
-                
-                let isOpen = false;
-                if (closeTime < openTime) {
-                  isOpen = currentTime >= openTime || currentTime < closeTime;
-                } else {
-                  isOpen = currentTime >= openTime && currentTime < closeTime;
-                }
-                
-                return (
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    isOpen 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-red-100 text-red-700'
-                  }`}>
-                    {isOpen ? '🟢 Abierto' : '🔴 Cerrado'}
-                  </span>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Descripción */}
-          {place.descripcion && (
-            <div className="p-4 bg-purple-50 rounded-xl">
-              <p className="text-gray-700">{place.descripcion}</p>
-            </div>
-          )}
-
-          {/* Reseñas - Solo para comercios locales */}
-          {place.isLocal && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-500" />
-                  Reseñas {reviews.length > 0 && `(${reviews.length})`}
-                </h3>
-                {averageRating > 0 && (
-                  <div className="flex items-center gap-1">
-                    <span className="font-bold text-gray-900">{averageRating.toFixed(1)}</span>
-                    <span className="text-gray-500">/5</span>
-                  </div>
-                )}
-              </div>
-
+          {/* Reseñas */}
+          {place.isLocal && reviews.length > 0 && (
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <Star className="w-5 h-5 text-yellow-500" />
+                Reseñas ({reviews.length})
+              </h3>
+              
               {isLoadingReviews ? (
-                <div className="text-center py-6">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
-                  <p className="text-gray-500 text-sm mt-2">Cargando reseñas...</p>
-                </div>
-              ) : reviews.length === 0 ? (
-                <div className="text-center py-6 bg-gray-50 rounded-xl">
-                  <Star className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500">Aún no hay reseñas</p>
-                  <p className="text-gray-400 text-sm">¡Sé el primero en opinar!</p>
-                </div>
+                <div className="text-center py-4 text-gray-500">Cargando reseñas...</div>
               ) : (
                 <>
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                  <div className="space-y-3">
                     {displayedReviews.map((review, index) => (
-                      <div key={review.iD_Resenia || index} className="p-3 bg-gray-50 rounded-xl">
+                      <div 
+                        key={review.iD_Resenia || index} 
+                        className="p-3 bg-gray-50 rounded-xl border border-gray-200"
+                      >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-gray-900">
-                            {review.usuario?.nombreUsuario || 'Usuario'}
-                          </span>
-                          <div className="flex items-center gap-0.5">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`w-4 h-4 ${
-                                  star <= (review.puntuacion || review.calificacion)
-                                    ? 'fill-yellow-400 text-yellow-400'
-                                    : 'text-gray-300'
-                                }`}
-                              />
-                            ))}
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-sm font-bold">
+                                {review.usuario?.nombreUsuario?.charAt(0).toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {review.usuario?.nombreUsuario || 'Usuario'}
+                              </p>
+                              <div className="flex items-center gap-1">
+                                {Array.from({ length: review.calificacion }).map((_, i) => (
+                                  <Star key={i} className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                                ))}
+                              </div>
+                            </div>
                           </div>
+                          <p className="text-xs text-gray-500">
+                            {new Date(review.fecha).toLocaleDateString('es-AR')}
+                          </p>
                         </div>
-                        {review.comentario && (
-                          <p className="text-gray-600 text-sm">{review.comentario}</p>
-                        )}
-                        <p className="text-xs text-gray-400 mt-2">
-                          {new Date(review.fechaCreacion).toLocaleDateString('es-ES', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </p>
+                        <p className="text-sm text-gray-700 leading-relaxed">{review.comentario}</p>
                       </div>
                     ))}
                   </div>
-
+                  
                   {reviews.length > 3 && (
                     <button
                       onClick={() => setShowAllReviews(!showAllReviews)}
-                      className="w-full text-center text-purple-600 text-sm font-medium py-2 hover:text-purple-700"
+                      className="w-full mt-3 py-2 text-sm font-semibold text-purple-600 hover:text-purple-700 transition"
                     >
                       {showAllReviews ? 'Ver menos' : `Ver todas las reseñas (${reviews.length})`}
                     </button>
@@ -409,8 +339,8 @@ const PlaceDetailModal = ({
           )}
         </div>
 
-        {/* Footer con botones - Solo para comercios locales y usuarios NO admin */}
-        {place.isLocal && !isAdmin && (
+        {/* Footer con botones - Solo para comercios locales y usuarios */}
+        {place.isLocal && !isAdmin && !isBarOwner && (
           <div className="border-t border-gray-200 p-4 bg-gray-50 flex-shrink-0">
             <div className="flex gap-3">
               <button

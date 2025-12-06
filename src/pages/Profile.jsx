@@ -1,4 +1,4 @@
-// Profile.jsx - Página de Perfil (con vista diferenciada por rol)
+// Profile.jsx - Página de Perfil
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -11,9 +11,10 @@ import { useAuth } from '../hooks/useAuth';
 import Header from '../components/Shared/Header';
 import { getRoleDescriptionById } from '../utils/roleHelper';
 import { actualizarUsuario, eliminarUsuario } from '../services/usuariosService';
-import { getReservasByUsuario } from '../services/reservasService';
+import { getReservasByUsuario, getAllReservas, filterReservasByComercioId } from '../services/reservasService';
 import { getAllResenias } from '../services/reseniasService';
 import { getComerciosByUsuario } from '../services/comerciosService';
+import { getAllPublicidades } from '../services/publicidadesService';
 
 // COMPONENTE STAT CARD
 const StatCard = ({ icon: Icon, label, value, subValue, color, bgColor, borderColor, iconBg }) => (
@@ -26,8 +27,8 @@ const StatCard = ({ icon: Icon, label, value, subValue, color, bgColor, borderCo
           <p className="text-xs text-gray-500 mt-1">{subValue}</p>
         )}
       </div>
-      <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
-        <Icon className={`w-6 h-6 ${color}`} />
+      <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg`}>
+        <Icon className="w-6 h-6 text-white" />
       </div>
     </div>
   </div>
@@ -60,10 +61,11 @@ const Profile = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Estados de actividad (solo para usuarios no-admin)
+  // Estados de actividad (solo para usuarios no admin)
   const [reservas, setReservas] = useState([]);
   const [resenias, setResenias] = useState([]);
   const [comercios, setComercios] = useState([]);
+  const [publicidades, setPublicidades] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Estados de estadísticas
@@ -89,30 +91,19 @@ const Profile = () => {
         setLoading(false);
       }
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, isBarOwner]); // Agregar isBarOwner a las dependencias
 
   const loadUserActivity = async () => {
     try {
       setLoading(true);
 
-      // Cargar reservas del usuario
-      const userReservas = await getReservasByUsuario(user.iD_Usuario);
-      setReservas(userReservas.slice(0, 5));
-
-      // Cargar reseñas del usuario
-      const allResenias = await getAllResenias();
-      const userResenias = allResenias.filter(r => r.iD_Usuario === user.iD_Usuario);
-      setResenias(userResenias.slice(0, 5));
-
-      // Si es dueño, cargar comercios
-      let userComercios = [];
       if (isBarOwner) {
-        userComercios = await getComerciosByUsuario(user.iD_Usuario);
-        setComercios(userComercios);
+        // DUEÑO DE COMERCIO: Cargar datos de sus comercios
+        await loadBarOwnerActivity();
+      } else {
+        // USUARIO NORMAL: Cargar sus propias reservas y reseñas
+        await loadNormalUserActivity();
       }
-
-      // Calcular estadísticas
-      calculateStats(userReservas, userResenias, userComercios);
 
     } catch (err) {
       console.error('Error cargando actividad:', err);
@@ -121,20 +112,79 @@ const Profile = () => {
     }
   };
 
-  const calculateStats = (reservasList, reseniasList, comerciosList = []) => {
-    const comerciosActivos = comerciosList.filter(c => c.estado).length;
-    
-    const promedioCalif = reseniasList.length > 0
-      ? reseniasList.reduce((sum, r) => sum + (r.calificacion || r.puntuacion || 0), 0) / reseniasList.length
-      : 0;
+  // Función para cargar actividad de USUARIO NORMAL
+  const loadNormalUserActivity = async () => {
+    try {
+      // Cargar reservas que HIZO el usuario
+      const userReservas = await getReservasByUsuario(user.iD_Usuario);
+      setReservas(userReservas.slice(0, 5));
 
-    setStats({
-      totalReservas: reservasList.length,
-      reservasAprobadas: reservasList.filter(r => r.estado === true).length,
-      totalResenias: reseniasList.length,
-      promedioCalificaciones: promedioCalif,
-      comerciosActivos: comerciosActivos
-    });
+      // Cargar reseñas que ESCRIBIÓ el usuario
+      const allResenias = await getAllResenias();
+      const userResenias = allResenias.filter(r => r.iD_Usuario === user.iD_Usuario);
+      setResenias(userResenias.slice(0, 5));
+
+      // Calcular estadísticas de usuario normal
+      const promedioCalif = userResenias.length > 0
+        ? userResenias.reduce((sum, r) => sum + (r.calificacion || r.puntuacion || 0), 0) / userResenias.length
+        : 0;
+
+      setStats({
+        totalReservas: userReservas.length,
+        reservasAprobadas: userReservas.filter(r => r.estado === true).length,
+        totalResenias: userResenias.length,
+        promedioCalificaciones: promedioCalif,
+        comerciosActivos: 0
+      });
+
+    } catch (err) {
+      console.error('Error cargando actividad de usuario:', err);
+    }
+  };
+
+  // Función para cargar actividad de DUEÑO DE COMERCIO
+  const loadBarOwnerActivity = async () => {
+    try {
+      // Cargar comercios del usuario
+      const userComercios = await getComerciosByUsuario(user.iD_Usuario);
+      setComercios(userComercios);
+
+      // Obtener IDs de los comercios
+      const comercioIds = userComercios.map(c => c.iD_Comercio);
+
+      // Cargar todas las reservas y filtrar las que son de sus comercios
+      const allReservas = await getAllReservas();
+      const reservasRecibidas = allReservas.filter(r => comercioIds.includes(r.iD_Comercio));
+      setReservas(reservasRecibidas.slice(0, 5)); // Mostrar las 5 más recientes
+
+      // Cargar todas las reseñas y filtrar las que son de sus comercios
+      const allResenias = await getAllResenias();
+      const reseniasRecibidas = allResenias.filter(r => comercioIds.includes(r.iD_Comercio));
+      setResenias(reseniasRecibidas.slice(0, 5)); // Mostrar las 5 más recientes
+
+      // Cargar todas las publicidades y filtrar las que son de sus comercios
+      const allPublicidades = await getAllPublicidades();
+      const publicidadesUsuario = allPublicidades.filter(p => comercioIds.includes(p.iD_Comercio || p.ID_Comercio));
+      setPublicidades(publicidadesUsuario);
+
+      // Calcular estadísticas para dueño de comercio
+      const comerciosActivos = userComercios.filter(c => c.estado).length;
+      
+      const promedioCalif = reseniasRecibidas.length > 0
+        ? reseniasRecibidas.reduce((sum, r) => sum + (r.calificacion || r.puntuacion || 0), 0) / reseniasRecibidas.length
+        : 0;
+
+      setStats({
+        totalReservas: reservasRecibidas.length,
+        reservasAprobadas: reservasRecibidas.filter(r => r.estado === true).length,
+        totalResenias: reseniasRecibidas.length,
+        promedioCalificaciones: promedioCalif,
+        comerciosActivos: comerciosActivos
+      });
+
+    } catch (err) {
+      console.error('Error cargando actividad de comercio:', err);
+    }
   };
 
   const handleEdit = () => {
@@ -264,15 +314,15 @@ const Profile = () => {
   const inputClass = (hasError) => `
     w-full px-4 py-3 bg-gray-50 border-2 rounded-xl transition-all outline-none
     ${hasError 
-      ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-100' 
-      : 'border-gray-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100'
+      ? 'border-red-300 focus:border-red-500' 
+      : 'border-gray-200 focus:border-purple-500'
     }
   `;
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Cargando perfil...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
       </div>
     );
   }
@@ -281,28 +331,30 @@ const Profile = () => {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      {/* Hero Section */}
-      <div className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 relative overflow-hidden">
+      {/* HERO CON GRADIENTE */}
+      <div className="relative bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 overflow-hidden">
         {/* Decoraciones */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-72 h-72 bg-pink-500/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl"></div>
         </div>
-        
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        {/* Contenido del hero */}
+        <div className="relative container mx-auto px-4 py-12">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            {/* Info del usuario */}
+            {/* Avatar y nombre */}
             <div className="flex items-center gap-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-pink-500 rounded-2xl flex items-center justify-center shadow-xl">
-                <User className="w-10 h-10 text-white" />
+              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-sm flex items-center justify-center border-2 border-white/20">
+                <User className="w-12 h-12 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white mb-1">
+                <h1 className="text-3xl font-bold text-white mb-2">
                   {user?.nombreUsuario || 'Usuario'}
                 </h1>
-                <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    isAdmin 
+                <div className="flex items-center gap-3">
+                  <span className={`px-4 py-1.5 rounded-full text-sm font-medium backdrop-blur-sm
+                    ${isAdmin 
                       ? 'bg-purple-500/20 text-purple-200 border border-purple-400/30' 
                       : isBarOwner 
                         ? 'bg-pink-500/20 text-pink-200 border border-pink-400/30'
@@ -358,83 +410,15 @@ const Profile = () => {
           {/* VISTA PARA ADMINISTRADOR */}
           {isAdmin ? (
             <>
-              {/* Stats Cards para Admin */}
-              <div className="grid gap-4 mb-8 grid-cols-1 md:grid-cols-2">
-                <StatCard
-                  icon={Shield}
-                  label="Rol"
-                  value="Administrador"
-                  subValue="Gestión completa del sistema"
-                  color="text-purple-600"
-                  bgColor="bg-white"
-                  borderColor="border-purple-200"
-                  iconBg="bg-purple-100"
-                />
-                <StatCard
-                  icon={user?.estado ? CheckCircle : AlertCircle}
-                  label="Estado de Cuenta"
-                  value={user?.estado ? 'Activo' : 'Inactivo'}
-                  subValue={user?.estado ? 'Cuenta funcionando correctamente' : 'Cuenta deshabilitada'}
-                  color={user?.estado ? 'text-emerald-600' : 'text-red-600'}
-                  bgColor="bg-white"
-                  borderColor="border-gray-100"
-                  iconBg={user?.estado ? 'bg-emerald-100' : 'bg-red-100'}
-                />
-              </div>
-
-              {/* Accesos Rápidos de Administración */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <LayoutDashboard className="w-5 h-5 text-purple-500" />
-                  Accesos Rápidos de Administración
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <button
-                    onClick={() => navigate('/admin/usuarios')}
-                    className="p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors text-center group"
-                  >
-                    <Users className="w-8 h-8 text-blue-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium text-gray-700">Usuarios</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/admin/comercios')}
-                    className="p-4 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors text-center group"
-                  >
-                    <Store className="w-8 h-8 text-emerald-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium text-gray-700">Comercios</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/admin/publicidades')}
-                    className="p-4 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors text-center group"
-                  >
-                    <Megaphone className="w-8 h-8 text-purple-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium text-gray-700">Publicidades</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/admin/resenias')}
-                    className="p-4 bg-amber-50 rounded-xl hover:bg-amber-100 transition-colors text-center group"
-                  >
-                    <Star className="w-8 h-8 text-amber-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium text-gray-700">Reseñas</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/admin/roles')}
-                    className="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors text-center group"
-                  >
-                    <Shield className="w-8 h-8 text-slate-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium text-gray-700">Roles</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/admin/tipos-comercio')}
-                    className="p-4 bg-pink-50 rounded-xl hover:bg-pink-100 transition-colors text-center group"
-                  >
-                    <Tag className="w-8 h-8 text-pink-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium text-gray-700">Tipos Comercio</span>
-                  </button>
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-8 text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Shield className="w-10 h-10 text-white" />
                 </div>
-
-                {/* Botón para ir al Panel completo */}
-                <div className="mt-6 pt-4 border-t border-gray-100">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Panel de Administración</h2>
+                <p className="text-gray-600 mb-6">
+                  Gestiona usuarios, comercios, publicidades y más desde el panel de administración.
+                </p>
+                <div className="border-t border-gray-100">
                   <button
                     onClick={() => navigate('/admin')}
                     className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-semibold"
@@ -468,72 +452,88 @@ const Profile = () => {
               <div className={`grid gap-4 mb-8 ${isBarOwner ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4'}`}>
                 <StatCard
                   icon={Calendar}
-                  label="Reservas"
+                  label={isBarOwner ? "Reservas Recibidas" : "Mis Reservas"}
                   value={stats.totalReservas}
                   subValue={`${stats.reservasAprobadas} confirmadas`}
                   color="text-blue-600"
                   bgColor="bg-white"
                   borderColor="border-gray-100"
-                  iconBg="bg-blue-100"
+                  iconBg="bg-gradient-to-br from-blue-500 to-cyan-500"
                 />
                 <StatCard
                   icon={Star}
-                  label="Reseñas"
+                  label={isBarOwner ? "Reseñas Recibidas" : "Mis Reseñas"}
                   value={stats.totalResenias}
                   subValue={`Promedio: ${stats.promedioCalificaciones.toFixed(1)} ⭐`}
                   color="text-amber-600"
                   bgColor="bg-white"
                   borderColor="border-gray-100"
-                  iconBg="bg-amber-100"
+                  iconBg="bg-gradient-to-br from-amber-500 to-yellow-500"
                 />
                 {isBarOwner ? (
-                  <StatCard
-                    icon={Store}
-                    label="Comercios"
-                    value={comercios.length}
-                    subValue={`${stats.comerciosActivos} activos`}
-                    color="text-emerald-600"
-                    bgColor="bg-white"
-                    borderColor="border-gray-100"
-                    iconBg="bg-emerald-100"
-                  />
+                  <>
+                    <StatCard
+                      icon={Store}
+                      label="Mis Comercios"
+                      value={comercios.length}
+                      subValue={`${stats.comerciosActivos} activos`}
+                      color="text-emerald-600"
+                      bgColor="bg-white"
+                      borderColor="border-gray-100"
+                      iconBg="bg-gradient-to-br from-emerald-500 to-teal-500"
+                    />
+                    <StatCard
+                      icon={Megaphone}
+                      label="Publicidades"
+                      value={publicidades.length}
+                      subValue={`${publicidades.filter(p => p.estado && p.pago).length} activas`}
+                      color="text-purple-600"
+                      bgColor="bg-white"
+                      borderColor="border-gray-100"
+                      iconBg="bg-gradient-to-br from-purple-500 to-pink-500"
+                    />
+                  </>
                 ) : (
-                  <StatCard
-                    icon={MapPin}
-                    label="Lugares"
-                    value={new Set(reservas.map(r => r.iD_Comercio)).size}
-                    subValue="visitados"
-                    color="text-emerald-600"
-                    bgColor="bg-white"
-                    borderColor="border-gray-100"
-                    iconBg="bg-emerald-100"
-                  />
+                  <>
+                    <StatCard
+                      icon={MapPin}
+                      label="Lugares Visitados"
+                      value={new Set(reservas.map(r => r.iD_Comercio)).size}
+                      subValue="Únicos"
+                      color="text-emerald-600"
+                      bgColor="bg-white"
+                      borderColor="border-gray-100"
+                      iconBg="bg-gradient-to-br from-emerald-500 to-teal-500"
+                    />
+                    <StatCard
+                      icon={TrendingUp}
+                      label="Actividad"
+                      value={reservas.length + resenias.length}
+                      subValue="Total de acciones"
+                      color="text-purple-600"
+                      bgColor="bg-white"
+                      borderColor="border-gray-100"
+                      iconBg="bg-gradient-to-br from-purple-500 to-pink-500"
+                    />
+                  </>
                 )}
-                <StatCard
-                  icon={user?.estado ? CheckCircle : AlertCircle}
-                  label="Estado"
-                  value={user?.estado ? 'Activo' : 'Inactivo'}
-                  color={user?.estado ? 'text-emerald-600' : 'text-red-600'}
-                  bgColor="bg-white"
-                  borderColor="border-gray-100"
-                  iconBg={user?.estado ? 'bg-emerald-100' : 'bg-red-100'}
-                />
               </div>
 
               {/* Actividad reciente */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* Últimas Reservas */}
+                {/* Reservas */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                       <Calendar className="w-5 h-5 text-blue-500" />
-                      Últimas Reservas
+                      {isBarOwner ? "Últimas Reservas Recibidas" : "Mis Últimas Reservas"}
                     </h3>
                     <button
                       onClick={() => navigate('/mis-reservas')}
-                      className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                      className="text-purple-600 hover:text-purple-700 text-sm font-medium flex items-center gap-1"
                     >
-                      Ver todas <ChevronRight className="w-4 h-4" />
+                      Ver todas
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
 
@@ -544,7 +544,9 @@ const Profile = () => {
                   ) : reservas.length === 0 ? (
                     <div className="text-center py-8">
                       <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-gray-500">No tenés reservas aún</p>
+                      <p className="text-gray-500">
+                        {isBarOwner ? "No has recibido reservas aún" : "No hiciste reservas aún"}
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -553,20 +555,28 @@ const Profile = () => {
                         return (
                           <div
                             key={reserva.iD_Reserva}
-                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                            className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                           >
-                            <div>
+                            <div className="flex items-center justify-between mb-2">
                               <p className="font-semibold text-gray-900">
-                                {reserva.comercio?.nombre || 'Comercio'}
+                                {isBarOwner 
+                                  ? (reserva.usuario?.nombreUsuario || 'Cliente')
+                                  : (reserva.comercio?.nombre || 'Comercio')}
                               </p>
-                              <p className="text-sm text-gray-500 flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {formatFecha(reserva.fechaReserva)}
-                              </p>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${estado.bgColor} ${estado.textColor}`}>
+                                {estado.text}
+                              </span>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${estado.bgColor} ${estado.textColor}`}>
-                              {estado.text}
-                            </span>
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-4 h-4" />
+                                {formatFecha(reserva.fechaReserva)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Users className="w-4 h-4" />
+                                {reserva.comensales || reserva.comenzales} personas
+                              </span>
+                            </div>
                           </div>
                         );
                       })}
@@ -574,18 +584,19 @@ const Profile = () => {
                   )}
                 </div>
 
-                {/* Últimas Reseñas */}
+                {/* Reseñas */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                       <Star className="w-5 h-5 text-amber-500" />
-                      Últimas Reseñas
+                      {isBarOwner ? "Últimas Reseñas Recibidas" : "Mis Últimas Reseñas"}
                     </h3>
                     <button
                       onClick={() => navigate('/mis-resenias')}
-                      className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                      className="text-purple-600 hover:text-purple-700 text-sm font-medium flex items-center gap-1"
                     >
-                      Ver todas <ChevronRight className="w-4 h-4" />
+                      Ver todas
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
 
@@ -596,7 +607,9 @@ const Profile = () => {
                   ) : resenias.length === 0 ? (
                     <div className="text-center py-8">
                       <Star className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-gray-500">No dejaste reseñas aún</p>
+                      <p className="text-gray-500">
+                        {isBarOwner ? "No has recibido reseñas aún" : "No dejaste reseñas aún"}
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -607,7 +620,9 @@ const Profile = () => {
                         >
                           <div className="flex items-center justify-between mb-2">
                             <p className="font-semibold text-gray-900">
-                              {resenia.comercio?.nombre || 'Comercio'}
+                              {isBarOwner 
+                                ? (resenia.usuario?.nombreUsuario || 'Usuario')
+                                : (resenia.comercio?.nombre || 'Comercio')}
                             </p>
                             {renderStars(resenia.calificacion || resenia.puntuacion || 0)}
                           </div>

@@ -78,8 +78,8 @@ const Home = () => {
 
   // Ubicación por defecto (CABA)
   const DEFAULT_LOCATION = {
-    latitude: 34.3559,
-    longitude: 58.2255,
+    latitude: -34.3559,
+    longitude: -58.2255,
   };
 
   // Datos estáticos
@@ -122,7 +122,7 @@ const Home = () => {
       if (!location && !locationLoading) {
         setManualLocation(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
       }
-    }, 3000);
+    }, 10000);
     return () => clearTimeout(timer);
   }, [location, locationLoading, setManualLocation]);
 
