@@ -73,13 +73,16 @@ const Home = () => {
     latitude, 
     longitude, 
     isLoading: locationLoading,
+    error: locationError,
+    permissionDenied: locationPermissionDenied,
+    requestLocation,
     setManualLocation
   } = useLocation();
 
   // Ubicación por defecto (CABA)
   const DEFAULT_LOCATION = {
-    latitude: -34.3559,
-    longitude: -58.2255,
+    latitude: -34.6037,
+    longitude: -58.3816,
   };
 
   // Datos estáticos
@@ -122,7 +125,7 @@ const Home = () => {
       if (!location && !locationLoading) {
         setManualLocation(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
       }
-    }, 10000);
+    }, 30000);
     return () => clearTimeout(timer);
   }, [location, locationLoading, setManualLocation]);
 
@@ -425,6 +428,10 @@ const Home = () => {
               selectedPlace={selectedPlace}
               onPlaceClick={handlePlaceClick}
               onStoryPress={handleStoryPress}
+              locationLoading={locationLoading}
+              locationError={locationError}
+              locationPermissionDenied={locationPermissionDenied}
+              onRequestLocation={requestLocation}
             />
           ) : (
             <PlaceList

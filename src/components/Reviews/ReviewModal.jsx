@@ -1,4 +1,4 @@
-// ReviewModal.jsx - Modal de reseña
+// ReviewModal.jsx - Modal de reseña para usuarios
 import { useState, useEffect, useCallback } from 'react';
 import { 
   X, Star, AlertCircle, CheckCircle, Loader, 
@@ -74,7 +74,7 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
 
       const validReservations = reservas.filter((reserva) => {
         const reservaDate = new Date(reserva.fechaReserva);
-        
+      
         return (
           reserva.iD_Comercio === comercio.iD_Comercio &&
           reserva.estado === true &&
@@ -85,6 +85,7 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
 
       return validReservations.length > 0;
     } catch (error) {
+      console.error('Error checking reservations:', error);
       return false;
     }
   };
@@ -112,6 +113,7 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
 
       return daysDifference >= 7;
     } catch (error) {
+      console.error('Error checking review cooldown:', error);
       return false;
     }
   };
@@ -146,6 +148,7 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
       setValidationMessage('¡Podés dejar tu reseña!');
       
     } catch (error) {
+      console.error('Error validating review eligibility:', error);
       setCanReview(false);
       setValidationMessage('Error al validar. Intentá nuevamente.');
     } finally {
@@ -178,7 +181,7 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
       const reseniaData = {
         iD_Usuario: user.iD_Usuario,
         iD_Comercio: comercio.iD_Comercio,
-        calificacion: rating,
+        puntuacion: rating,
         comentario: comment.trim(),
         estado: false,
         fechaCreacion: new Date().toISOString(),
@@ -194,7 +197,25 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
       }, 2000);
 
     } catch (error) {
-      setError(error.response?.data || 'Error al enviar la reseña. Intentá nuevamente.');
+      console.error('Error al crear reseña:', error);
+      
+      const errorMessage = error.response?.data;
+      
+      if (typeof errorMessage === 'string') {
+        if (errorMessage.includes('inactiv') || errorMessage.includes('desactivado')) {
+          setError('Tu cuenta está inactiva. Contactá al administrador.');
+        } else if (errorMessage.includes('reserva aprobada') || errorMessage.includes('sin reserva')) {
+          setError('Necesitás una reserva aprobada para dejar una reseña.');
+        } else if (errorMessage.includes('ya tienes una reseña') || errorMessage.includes('reseña pendiente') || errorMessage.includes('reseña aprobada')) {
+          setError('Ya tenés una reseña aprobada o pendiente para este comercio.');
+        } else if (errorMessage.includes('puntuación')) {
+          setError('La puntuación debe estar entre 1 y 5.');
+        } else {
+          setError(errorMessage);
+        }
+      } else {
+        setError('Error al enviar la reseña. Intentá nuevamente.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -229,25 +250,25 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
     <div className="fixed inset-0 z-[10002] overflow-y-auto">
       {/* Overlay */}
       <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
         onClick={handleClose}
       />
       
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div 
-          className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          className="relative bg-gradient-to-b from-[#1a1a2e] to-[#16162a] rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-violet-500/20"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header con gradiente amarillo/naranja */}
-          <div className="relative bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500 p-6 text-white overflow-hidden">
+          {/* Header */}
+          <div className="relative bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 p-6 text-white overflow-hidden">
             {/* Decoraciones */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
               <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
               {/* Estrellas decorativas */}
-              <Star className="absolute top-4 right-16 w-6 h-6 text-yellow-200/40 fill-yellow-200/40" />
-              <Star className="absolute bottom-6 left-16 w-4 h-4 text-yellow-200/30 fill-yellow-200/30" />
+              <Star className="absolute top-4 right-16 w-6 h-6 text-yellow-300/40 fill-yellow-300/40" />
+              <Star className="absolute bottom-6 left-16 w-4 h-4 text-yellow-300/30 fill-yellow-300/30" />
             </div>
             
             {/* Botón cerrar */}
@@ -262,7 +283,7 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
             
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">
-                <Star className="w-5 h-5 fill-yellow-200 text-yellow-200" />
+                <Star className="w-5 h-5 fill-yellow-300 text-yellow-300" />
                 <span className="text-white/90 text-sm font-medium">Dejá tu opinión</span>
               </div>
               <h2 className="text-2xl font-bold mb-1">{comercio.nombre}</h2>
@@ -278,24 +299,23 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
           {/* Contenido */}
           <div className="p-6 overflow-y-auto max-h-[calc(90vh-12rem)]">
             {isValidating ? (
-              // Validando...
               <div className="text-center py-12">
-                <div className="w-16 h-16 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600 font-medium">Validando permisos...</p>
+                <div className="w-16 h-16 border-4 border-violet-300/30 border-t-violet-500 rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-300 font-medium">Validando permisos...</p>
               </div>
             ) : !canReview ? (
               // No puede dejar reseña
               <div className="text-center py-8">
-                <div className="w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <AlertCircle className="w-10 h-10 text-amber-600" />
+                <div className="w-20 h-20 bg-gradient-to-br from-violet-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-violet-500/30">
+                  <AlertCircle className="w-10 h-10 text-violet-400" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                <h3 className="text-xl font-bold text-white mb-2">
                   No podés dejar una reseña
                 </h3>
-                <p className="text-gray-600 mb-6 max-w-sm mx-auto">{validationMessage}</p>
+                <p className="text-gray-400 mb-6 max-w-sm mx-auto">{validationMessage}</p>
                 <button
                   onClick={handleClose}
-                  className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-medium"
+                  className="px-6 py-2.5 bg-violet-500/20 text-violet-300 rounded-xl hover:bg-violet-500/30 transition font-medium border border-violet-500/30"
                 >
                   Entendido
                 </button>
@@ -303,24 +323,24 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
             ) : successMessage ? (
               // Éxito
               <div className="text-center py-8">
-                <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/30">
+                <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/30">
                   <CheckCircle className="w-10 h-10 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">¡Gracias por tu reseña!</h3>
-                <p className="text-gray-600">{successMessage}</p>
+                <h3 className="text-xl font-bold text-white mb-2">¡Gracias por tu reseña!</h3>
+                <p className="text-gray-400">{successMessage}</p>
               </div>
             ) : (
               // Formulario
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Sección de estrellas */}
                 <div>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-4">
-                    <Star className="w-4 h-4 text-amber-500" />
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-300 mb-4">
+                    <Star className="w-4 h-4 text-yellow-400" />
                     ¿Cómo calificás tu experiencia?
-                    <span className="text-orange-500">*</span>
+                    <span className="text-violet-400">*</span>
                   </label>
                   
-                  <div className="flex flex-col items-center gap-4 p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-100">
+                  <div className="flex flex-col items-center gap-4 p-6 bg-violet-500/10 rounded-2xl border border-violet-500/20">
                     {/* Estrellas */}
                     <div className="flex gap-2">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -335,8 +355,8 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
                           <Star
                             className={`w-10 h-10 transition-colors ${
                               star <= currentRating
-                                ? 'fill-amber-400 text-amber-400 drop-shadow-md'
-                                : 'fill-gray-200 text-gray-200'
+                                ? 'fill-yellow-400 text-yellow-400 drop-shadow-md'
+                                : 'fill-gray-600 text-gray-600'
                             }`}
                           />
                         </button>
@@ -347,59 +367,49 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
                     {currentRating > 0 && (
                       <div className="text-center animate-in fade-in duration-200">
                         <span className="text-4xl">{ratingInfo.emoji}</span>
-                        <p className="text-gray-700 font-semibold mt-1">{ratingInfo.text}</p>
-                        <p className="text-sm text-gray-500">{currentRating} de 5 estrellas</p>
+                        <p className="text-white font-semibold mt-1">{ratingInfo.text}</p>
+                        <p className="text-sm text-gray-400">{currentRating} de 5 estrellas</p>
                       </div>
                     )}
                     
                     {currentRating === 0 && (
-                      <p className="text-gray-400 text-sm">Tocá las estrellas para calificar</p>
+                      <p className="text-gray-500 text-sm">Tocá las estrellas para calificar</p>
                     )}
                   </div>
                 </div>
 
                 {/* Comentario */}
                 <div>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    <MessageSquare className="w-4 h-4 text-amber-500" />
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-300 mb-2">
+                    <MessageSquare className="w-4 h-4 text-violet-400" />
                     Tu comentario
-                    <span className="text-orange-500">*</span>
+                    <span className="text-violet-400">*</span>
                   </label>
                   <textarea
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     className={`
-                      w-full px-4 py-3 bg-gray-50 border-2 rounded-xl transition-all outline-none resize-none
+                      w-full px-4 py-3 bg-[#252540] border-2 rounded-xl transition-all outline-none resize-none text-white placeholder-gray-500
                       ${error && !comment.trim()
-                        ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
-                        : 'border-gray-200 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10'
+                        ? 'border-red-500/50 bg-red-500/10'
+                        : 'border-violet-500/30 hover:border-violet-500/50 focus:border-violet-500 focus:bg-[#2a2a4a]'
                       }
                     `}
-                    rows="4"
+                    rows={4}
                     placeholder="Contanos tu experiencia en este lugar..."
-                    disabled={isSubmitting}
+                    maxLength={500}
                   />
-                  <div className="flex justify-between items-center mt-2">
-                    <p className="text-xs text-gray-400">Mínimo 10 caracteres</p>
-                    <p className={`text-xs ${comment.length < 10 ? 'text-gray-400' : 'text-green-600'}`}>
-                      {comment.length}/10
-                    </p>
+                  <div className="flex justify-between mt-1">
+                    <p className="text-xs text-gray-500">Mínimo 10 caracteres</p>
+                    <p className="text-xs text-gray-500">{comment.length}/500</p>
                   </div>
-                </div>
-
-                {/* Info */}
-                <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
-                  <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-blue-700">
-                    Tu reseña será revisada antes de publicarse. ¡Gracias por compartir tu experiencia!
-                  </p>
                 </div>
 
                 {/* Error */}
                 {error && (
-                  <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-700">{error}</p>
+                  <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{error}</span>
                   </div>
                 )}
 
@@ -409,14 +419,14 @@ const ReviewModal = ({ isOpen, onClose, comercio, onSuccess }) => {
                     type="button"
                     onClick={handleClose}
                     disabled={isSubmitting}
-                    className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-3 bg-gray-700/50 text-gray-300 rounded-xl hover:bg-gray-700 transition font-medium disabled:opacity-50 border border-gray-600/50"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || rating === 0}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25"
                   >
                     {isSubmitting ? (
                       <>

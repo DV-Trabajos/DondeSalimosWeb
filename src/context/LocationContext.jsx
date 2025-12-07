@@ -1,4 +1,4 @@
-// LocationContext.jsx - Contexto de geolocalización
+// LocationContext.jsx - Contexto de geolocalización con timeout extendido
 import { createContext, useState, useEffect, useCallback } from 'react';
 
 export const LocationContext = createContext();
@@ -9,7 +9,7 @@ export const LocationProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
-  //Solicita permiso y obtiene la ubicación actual
+  // Solicita permiso y obtiene la ubicación actual
   const requestLocation = useCallback(async () => {
     if (!navigator.geolocation) {
       setError('La geolocalización no está soportada por tu navegador');
@@ -24,8 +24,8 @@ export const LocationProvider = ({ children }) => {
       const position = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
+          timeout: 30000, // 30 segundos para dar más tiempo
+          maximumAge: 60000, // Permitir usar ubicación cacheada de hasta 1 minuto
         });
       });
 
@@ -42,7 +42,6 @@ export const LocationProvider = ({ children }) => {
       
       return true;
     } catch (err) {
-
       let errorMessage = 'Error al obtener la ubicación';
 
       switch (err.code) {
@@ -66,7 +65,7 @@ export const LocationProvider = ({ children }) => {
     }
   }, []);
 
-  //Inicia el seguimiento de ubicación en tiempo real
+  // Inicia el seguimiento de ubicación en tiempo real
   const watchLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setError('La geolocalización no está soportada');
@@ -90,22 +89,22 @@ export const LocationProvider = ({ children }) => {
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 30000, // AUMENTADO: 30 segundos
+        maximumAge: 60000,
       }
     );
 
     return watchId;
   }, []);
 
-  //Detiene el seguimiento de ubicación
+  // Detiene el seguimiento de ubicación
   const clearWatch = useCallback((watchId) => {
     if (watchId && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchId);
     }
   }, []);
 
-  //Establece una ubicación manualmente
+  // Establece una ubicación manualmente
   const setManualLocation = useCallback((lat, lng) => {
     const locationData = {
       latitude: lat,
@@ -119,13 +118,13 @@ export const LocationProvider = ({ children }) => {
     setError(null);
   }, []);
 
-  //Limpia la ubicación actual
+  // Limpia la ubicación actual
   const clearLocation = useCallback(() => {
     setLocation(null);
     setError(null);
   }, []);
 
-  //Calcula la distancia entre dos puntos en kilómetros
+  // Calcula la distancia entre dos puntos en kilómetros
   const calculateDistance = useCallback((lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radio de la Tierra en km
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -144,7 +143,7 @@ export const LocationProvider = ({ children }) => {
     return distance; // en km
   }, []);
 
-  //Verifica si está cerca de una ubicación
+  // Verifica si está cerca de una ubicación
   const isNearby = useCallback(
     (targetLat, targetLng, radiusKm = 1) => {
       if (!location) return false;

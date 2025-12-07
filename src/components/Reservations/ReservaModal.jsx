@@ -1,4 +1,4 @@
-// ReservaModal.jsx - Modal de reserva con notificaciones toast
+// ReservaModal.jsx - Modal de reserva
 import { useState, useEffect, useCallback } from 'react';
 import { 
   X, Calendar, Clock, Users, AlertCircle, CheckCircle, 
@@ -184,15 +184,13 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
     setIsLoading(true);
 
     try {
-      // Construir fecha en zona horaria LOCAL del usuario
-      const localDateStr = `${formData.fecha}T${formData.hora}`;
-      const localDate = new Date(localDateStr);
-      const fechaReservaISO = localDate.toISOString();
+      // Hora local
+      const fechaReservaLocal = `${formData.fecha}T${formData.hora}:00`;
 
       const reservaData = {
         iD_Usuario: user.iD_Usuario,
         iD_Comercio: comercio.iD_Comercio,
-        fechaReserva: fechaReservaISO,
+        fechaReserva: fechaReservaLocal, // Formato: "2025-12-13T20:00:00" (sin Z, sin conversión UTC)
         tiempoTolerancia: '00:15:00',
         comensales: parseInt(formData.cantidadPersonas),
         estado: false,

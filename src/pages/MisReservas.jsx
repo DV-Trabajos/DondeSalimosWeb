@@ -178,16 +178,18 @@ const MisReservas = () => {
 
         <div className="relative container mx-auto px-4 py-12">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-6">
-            <CalendarDays className="w-4 h-4 text-white" />
-            <span className="text-white/90 text-sm font-medium">Gestión de reservas</span>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
+              <CalendarDays className="w-5 h-5 text-purple-300" />
+            </div>
+            <span className="text-purple-300/80 text-sm font-medium">Panel de gestión</span>
           </div>
 
           {/* Título */}
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
+          <h1 className="text-3xl font-bold text-white mb-2">
             Mis Reservas
           </h1>
-          <p className="text-purple-200 text-lg max-w-2xl">
+          <p className="text-purple-200/70">
             Administrá todas tus reservas en un solo lugar
           </p>
 

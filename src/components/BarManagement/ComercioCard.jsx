@@ -2,21 +2,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Edit2, Trash2, MapPin, Phone, Calendar, CheckCircle, 
+  Edit2, MapPin, Phone, Calendar, CheckCircle, 
   XCircle, Clock, AlertTriangle 
 } from 'lucide-react';
-import { deleteComercio } from '../../services/comerciosService';
 import { getAllReservas } from '../../services/reservasService';
 import { getAllTiposComercio } from '../../services/tiposComercioService';
 import { useNotification } from '../../hooks/useNotification';
-import DeleteComercioModal from './DeleteComercioModal';
 import { convertBase64ToImage } from '../../utils/formatters';
 
 const ComercioCard = ({ comercio, onEdit, onReload }) => {
   const navigate = useNavigate();
   const { success, error: showError } = useNotification();
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [estadisticas, setEstadisticas] = useState({
     total: 0,
@@ -95,20 +91,6 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
       console.error('Error al cargar estadísticas:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleEliminar = async () => {
-    try {
-      setIsDeleting(true);
-      await deleteComercio(comercio.iD_Comercio);
-      success('Comercio eliminado correctamente');
-      setShowDeleteModal(false);
-      onReload?.();
-    } catch (err) {
-      showError('Error al eliminar el comercio');
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -220,33 +202,16 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
             Ver Reservas Recibidas
           </button>
 
-          {/* Botones de acción */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => onEdit(comercio)}
-              className="flex-1 px-4 py-2.5 bg-white border-2 border-purple-200 text-purple-600 rounded-xl font-semibold hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              <Edit2 className="w-4 h-4" />
-              Editar
-            </button>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="px-4 py-2.5 bg-white border-2 border-red-200 text-red-600 rounded-xl font-semibold hover:bg-red-50 transition-all duration-200 flex items-center justify-center"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Botón de editar */}
+          <button
+            onClick={() => onEdit(comercio)}
+            className="w-full px-4 py-2.5 bg-white border-2 border-purple-200 text-purple-600 rounded-xl font-semibold hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            <Edit2 className="w-4 h-4" />
+            Editar
+          </button>
         </div>
       </div>
-
-      {/* Modal de confirmación de eliminación */}
-      <DeleteComercioModal
-        isOpen={showDeleteModal}
-        comercio={comercio}
-        onConfirm={handleEliminar}
-        onCancel={() => setShowDeleteModal(false)}
-        isDeleting={isDeleting}
-      />
     </>
   );
 };

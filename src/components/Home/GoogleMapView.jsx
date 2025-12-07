@@ -3,17 +3,17 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { GOOGLE_MAPS_API_KEY } from '../../utils/constants';
 import { getAllTiposComercio } from '../../services/tiposComercioService';
-import { MapPin, Navigation, Loader } from 'lucide-react';
+import { MapPin, Navigation, Loader, MapPinOff, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const mapContainerStyle = {
   width: '100%',
   height: '600px',
 };
 
-// Obelisco
+// Centro por defecto (Obelisco, CABA)
 const defaultCenter = {
-  lat: -27.367,
-  lng: -55.883,
+  lat: -34.6037,
+  lng: -58.3816,
 };
 
 const mapOptions = {
@@ -67,6 +67,11 @@ const GoogleMapView = ({
   onPlaceClick,
   onMapClick,
   onStoryPress,
+  // Props para feedback de ubicación
+  locationLoading = false,
+  locationError = null,
+  locationPermissionDenied = false,
+  onRequestLocation = null,
 }) => {
   const [map, setMap] = useState(null);
   const [hoveredPlace, setHoveredPlace] = useState(null);
@@ -77,6 +82,12 @@ const GoogleMapView = ({
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   });
+
+  // Verificar si la ubicación es REAL (no manual/por defecto)
+  const isRealLocation = userLocation && 
+                         userLocation.latitude && 
+                         userLocation.longitude && 
+                         !userLocation.manual;
 
   // Cargar tipos de comercio activos desde la API
   useEffect(() => {
@@ -106,17 +117,17 @@ const GoogleMapView = ({
     setMap(map);
   }, []);
 
-  // NUEVO: Centrar en ubicación del usuario con zoom apropiado
+  // Centrar en ubicación del usuario con zoom apropiado
   useEffect(() => {
     if (!map || hasInitialized) return;
 
-    // Prioridad 1: Si hay ubicación del usuario, centrar ahí con zoom cercano
-    if (userLocation && userLocation.latitude && userLocation.longitude) {
+    // Prioridad 1: Si hay ubicación REAL del usuario, centrar ahí
+    if (isRealLocation) {
       map.setCenter({
         lat: userLocation.latitude,
         lng: userLocation.longitude,
       });
-      map.setZoom(15); // Zoom cercano para ver lugares cercanos
+      map.setZoom(15);
       setHasInitialized(true);
       return;
     }
@@ -135,11 +146,11 @@ const GoogleMapView = ({
       }
     }
 
-    // Prioridad 3: Usar centro por defecto
+    // Prioridad 3: Usar centro por defecto (Obelisco)
     map.setCenter(defaultCenter);
     map.setZoom(13);
     setHasInitialized(true);
-  }, [map, userLocation, places, hasInitialized]);
+  }, [map, userLocation, places, hasInitialized, isRealLocation]);
 
   const onUnmount = useCallback(() => {
     setMap(null);
@@ -147,31 +158,28 @@ const GoogleMapView = ({
     setHasInitialized(false);
   }, []);
 
-  // Centrar en la ubicación del usuario
+  // Centrar en la ubicación del usuario (solo si es real)
   const centerOnUser = useCallback(() => {
-    if (map && userLocation) {
+    if (map && isRealLocation) {
       map.panTo({
         lat: userLocation.latitude,
         lng: userLocation.longitude,
       });
       map.setZoom(15);
     }
-  }, [map, userLocation]);
+  }, [map, userLocation, isRealLocation]);
 
   // Crear marcador simple y limpio
   const createEmojiMarker = (emoji, isSelected, isHovered, isLocal) => {
     const size = isSelected ? 52 : isHovered ? 48 : 44;
-    const borderColor = isLocal ? '#9333EA' : '#10B981'; // Púrpura para locales, verde para Google
+    const borderColor = isLocal ? '#9333EA' : '#10B981';
     const borderWidth = isSelected ? 4 : 3;
     const shadowOpacity = isSelected ? 0.4 : 0.2;
     
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <!-- Sombra -->
         <circle cx="${size/2}" cy="${size/2 + 2}" r="${size/2 - 4}" fill="rgba(0,0,0,${shadowOpacity})"/>
-        <!-- Círculo blanco de fondo -->
         <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 4}" fill="white" stroke="${borderColor}" stroke-width="${borderWidth}"/>
-        <!-- Emoji centrado -->
         <text x="${size/2}" y="${size/2 + 1}" font-size="${size * 0.5}" text-anchor="middle" dominant-baseline="central">${emoji}</text>
       </svg>
     `;
@@ -206,6 +214,106 @@ const GoogleMapView = ({
     else if (types.includes('cafe')) emoji = '☕';
     
     return createEmojiMarker(emoji, isSelected, isHovered, false);
+  };
+
+  // Renderizar indicador de estado de ubicación
+  const renderLocationStatus = () => {
+    // Si tiene ubicación REAL, no mostrar nada (el marcador azul ya está visible)
+    if (isRealLocation) {
+      return null;
+    }
+
+    // Permiso denegado
+    if (locationPermissionDenied) {
+      return (
+        <div className="absolute top-4 left-4 bg-red-50 border border-red-200 px-4 py-3 rounded-lg text-sm z-10 max-w-xs shadow-lg">
+          <div className="flex items-start gap-3">
+            <MapPinOff className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-800 font-medium">Ubicación denegada</p>
+              <p className="text-red-600 text-xs mt-1">
+                Para ver tu ubicación real, permití el acceso en tu navegador.
+              </p>
+              {onRequestLocation && (
+                <button
+                  onClick={onRequestLocation}
+                  className="mt-2 flex items-center gap-1.5 text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-md transition font-medium"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Reintentar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Error de ubicación (pero no permiso denegado)
+    if (locationError && !locationPermissionDenied) {
+      return (
+        <div className="absolute top-4 left-4 bg-orange-50 border border-orange-200 px-4 py-3 rounded-lg text-sm z-10 max-w-xs shadow-lg">
+          <div className="flex items-start gap-3">
+            <MapPinOff className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-orange-800 font-medium">Error de ubicación</p>
+              <p className="text-orange-600 text-xs mt-1">{locationError}</p>
+              {onRequestLocation && (
+                <button
+                  onClick={onRequestLocation}
+                  className="mt-2 flex items-center gap-1.5 text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1.5 rounded-md transition font-medium"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Reintentar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Cargando ubicación
+    if (locationLoading) {
+      return (
+        <div className="absolute top-4 left-4 bg-blue-50 border border-blue-200 px-4 py-3 rounded-lg text-sm z-10 flex items-center gap-3 shadow-lg">
+          <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+          <div>
+            <p className="text-blue-800 font-medium">Obteniendo ubicación...</p>
+            <p className="text-blue-600 text-xs">Esto puede tardar hasta 30 segundos</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Ubicación manual/por defecto (el marcador azul NO se muestra)
+    if (userLocation && userLocation.manual) {
+      return (
+        <div className="absolute top-4 left-4 bg-amber-50 border border-amber-200 px-4 py-3 rounded-lg text-sm z-10 max-w-xs shadow-lg">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-amber-800 font-medium">Ubicación aproximada</p>
+              <p className="text-amber-600 text-xs mt-1">
+                No pudimos obtener tu ubicación. Mostrando zona de CABA.
+              </p>
+              {onRequestLocation && (
+                <button
+                  onClick={onRequestLocation}
+                  className="mt-2 flex items-center gap-1.5 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1.5 rounded-md transition font-medium"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  Activar mi ubicación
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Sin ubicación y sin estado específico (esperando)
+    return null;
   };
 
   if (loadError) {
@@ -244,8 +352,8 @@ const GoogleMapView = ({
         options={mapOptions}
         onClick={onMapClick}
       >
-        {/* Marcador de ubicación del usuario */}
-        {userLocation && (
+        {/* Marcador de ubicación del usuario - SOLO si es ubicación REAL */}
+        {isRealLocation && (
           <Marker
             position={{
               lat: userLocation.latitude,
@@ -269,7 +377,6 @@ const GoogleMapView = ({
           const lat = place.latitud;
           const lng = place.longitud;
           
-          // Validar coordenadas
           if (!lat || !lng || lat === 0 || lng === 0 || isNaN(lat) || isNaN(lng)) {
             return null;
           }
@@ -297,8 +404,8 @@ const GoogleMapView = ({
         })}
       </GoogleMap>
 
-      {/* Botón para centrar en ubicación del usuario */}
-      {userLocation && (
+      {/* Botón para centrar en ubicación - SOLO si es ubicación REAL */}
+      {isRealLocation && (
         <button
           onClick={centerOnUser}
           className="absolute bottom-20 right-4 bg-white p-3 rounded-full shadow-lg hover:bg-gray-50 transition z-50 group"
@@ -310,10 +417,20 @@ const GoogleMapView = ({
 
       {/* Leyendas */}
       <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm p-3 rounded-xl shadow-lg text-sm z-10">
-        {/* Tu ubicación */}
+        {/* Tu ubicación - mostrar estado */}
         <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
-          <div className="w-5 h-5 rounded-full bg-blue-500 ring-3 ring-blue-200"></div>
-          <span className="text-gray-700 font-medium">Tu ubicación</span>
+          <div className={`w-5 h-5 rounded-full ring-3 ${
+            isRealLocation
+              ? 'bg-blue-500 ring-blue-200' 
+              : 'bg-gray-300 ring-gray-200'
+          }`}></div>
+          <span className={`font-medium ${
+            isRealLocation
+              ? 'text-gray-700' 
+              : 'text-gray-400'
+          }`}>
+            Tu ubicación {!isRealLocation && '(no detectada)'}
+          </span>
         </div>
         
         {/* Tipos de comercio activos */}
@@ -343,13 +460,8 @@ const GoogleMapView = ({
         </div>
       </div>
 
-      {/* Indicador de carga de ubicación */}
-      {!userLocation && (
-        <div className="absolute top-4 left-4 bg-yellow-50 border border-yellow-200 px-3 py-2 rounded-lg text-sm z-10 flex items-center gap-2">
-          <Loader className="w-4 h-4 text-yellow-600 animate-spin" />
-          <span className="text-yellow-800">Obteniendo ubicación...</span>
-        </div>
-      )}
+      {/* Indicador de estado de ubicación */}
+      {renderLocationStatus()}
     </div>
   );
 };
