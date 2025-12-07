@@ -27,21 +27,6 @@ const PRECIOS = {
   30: 140000,
 };
 
-// COMPONENTE STAT CARD MEJORADO
-const StatCard = ({ icon: Icon, label, value, color, bgColor, borderColor, iconBg }) => (
-  <div className={`${bgColor} ${borderColor} border-2 rounded-2xl p-4 hover:shadow-lg transition-all duration-300 group`}>
-    <div className="flex items-center gap-3">
-      <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
-        <Icon className={`w-6 h-6 ${color}`} />
-      </div>
-      <div>
-        <p className={`text-2xl font-bold ${color}`}>{value}</p>
-        <p className="text-xs text-gray-600 font-medium">{label}</p>
-      </div>
-    </div>
-  </div>
-);
-
 // COMPONENTE PRINCIPAL
 const MisPublicidades = () => {
   const { user } = useAuth();
@@ -346,29 +331,35 @@ const MisPublicidades = () => {
           </div>
 
           {/* Mini Stats en el Hero */}
-          <div className="inline-flex items-center gap-6 bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/10 flex-wrap">
+          <div className="mt-8 inline-flex items-center gap-6 bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/10 flex-wrap">
             <div className="flex items-center gap-2">
               <Megaphone className="w-5 h-5 text-purple-300" />
               <span className="text-white font-semibold">{stats.total}</span>
               <span className="text-purple-300/70 text-sm">publicidades</span>
             </div>
-            <div className="w-px h-6 bg-white/20 hidden md:block"></div>
+            <div className="w-px h-6 bg-white/20"></div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-emerald-400" />
               <span className="text-white font-semibold">{stats.activas}</span>
               <span className="text-purple-300/70 text-sm">activas</span>
             </div>
-            {stats.pendientes > 0 && (
+            <div className="w-px h-6 bg-white/20"></div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-400" />
+              <span className="text-white font-semibold">{stats.pendientes}</span>
+              <span className="text-purple-300/70 text-sm">pendientes</span>
+            </div>
+            {stats.sinPagar > 0 && (
               <>
-                <div className="w-px h-6 bg-white/20 hidden md:block"></div>
+                <div className="w-px h-6 bg-white/20"></div>
                 <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-amber-400" />
-                  <span className="text-white font-semibold">{stats.pendientes}</span>
-                  <span className="text-purple-300/70 text-sm">pendientes</span>
+                  <DollarSign className="w-5 h-5 text-orange-400" />
+                  <span className="text-white font-semibold">{stats.sinPagar}</span>
+                  <span className="text-purple-300/70 text-sm">sin pagar</span>
                 </div>
               </>
             )}
-            <div className="w-px h-6 bg-white/20 hidden md:block"></div>
+            <div className="w-px h-6 bg-white/20"></div>
             <div className="flex items-center gap-2">
               <Eye className="w-5 h-5 text-blue-400" />
               <span className="text-white font-semibold">{stats.totalVisualizaciones}</span>
@@ -396,46 +387,6 @@ const MisPublicidades = () => {
             </div>
           ) : (
             <>
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <StatCard
-                  icon={Megaphone}
-                  label="Total"
-                  value={stats.total}
-                  color="text-blue-600"
-                  bgColor="bg-blue-50"
-                  borderColor="border-blue-100"
-                  iconBg="bg-blue-100"
-                />
-                <StatCard
-                  icon={CheckCircle}
-                  label="Activas"
-                  value={stats.activas}
-                  color="text-emerald-600"
-                  bgColor="bg-emerald-50"
-                  borderColor="border-emerald-200"
-                  iconBg="bg-emerald-100"
-                />
-                <StatCard
-                  icon={Clock}
-                  label="Pendientes"
-                  value={stats.pendientes}
-                  color="text-amber-600"
-                  bgColor="bg-amber-50"
-                  borderColor="border-amber-200"
-                  iconBg="bg-amber-100"
-                />
-                <StatCard
-                  icon={Eye}
-                  label="Vistas"
-                  value={stats.totalVisualizaciones}
-                  color="text-purple-600"
-                  bgColor="bg-purple-50"
-                  borderColor="border-purple-200"
-                  iconBg="bg-purple-100"
-                />
-              </div>
-
               {/* Formulario de crear publicidad */}
               {showForm && (
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-8">
@@ -701,8 +652,8 @@ const MisPublicidades = () => {
                               </button>
                             )}
                             
-                            {/* Solo mostrar eliminar para rechazadas o pendientes */}
-                            {(estadoInfo.estado === 'rechazada' || estadoInfo.estado === 'pendiente') && (
+                            {/* Permitir eliminar: pendientes, rechazadas O sin pagar */}
+                            {(estadoInfo.estado === 'rechazada' || estadoInfo.estado === 'pendiente' || estadoInfo.estado === 'sinPagar') && (
                               <button
                                 onClick={() => handleDelete(pub)}
                                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors"

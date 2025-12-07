@@ -10,21 +10,6 @@ import {
   Sparkles, TrendingUp, Users, Calendar
 } from 'lucide-react';
 
-// COMPONENTE STAT CARD
-const StatCard = ({ icon: Icon, label, value, color, bgColor, borderColor, iconBg }) => (
-  <div className={`${bgColor} ${borderColor} border-2 rounded-2xl p-4 hover:shadow-lg transition-all duration-300 group`}>
-    <div className="flex items-center gap-3">
-      <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
-        <Icon className={`w-6 h-6 ${color}`} />
-      </div>
-      <div>
-        <p className={`text-2xl font-bold ${color}`}>{value}</p>
-        <p className="text-xs text-gray-600 font-medium">{label}</p>
-      </div>
-    </div>
-  </div>
-);
-
 // COMPONENTE PRINCIPAL
 const BarManagement = () => {
   const [comercios, setComercios] = useState([]);
@@ -113,7 +98,7 @@ const BarManagement = () => {
                 <div className="p-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
                   <Store className="w-5 h-5 text-purple-300" />
                 </div>
-                <span className="text-purple-300/80 text-sm font-medium">Panel de gestión</span>
+              <span className="text-purple-300/80 text-sm font-medium">Panel de gestión</span>
               </div>
               <h1 className="text-4xl font-bold text-white mb-2">Mis Comercios</h1>
               <p className="text-purple-200/70">Gestioná tus bares y restaurantes</p>
@@ -164,75 +149,35 @@ const BarManagement = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <StatCard 
-              icon={Store} 
-              label="Total" 
-              value={stats.total} 
-              color="text-blue-600"
-              bgColor="bg-blue-50"
-              borderColor="border-blue-100"
-              iconBg="bg-blue-100"
-            />
-            <StatCard 
-              icon={CheckCircle} 
-              label="Visibles" 
-              value={stats.visibles} 
-              color="text-emerald-600"
-              bgColor="bg-emerald-50"
-              borderColor="border-emerald-100"
-              iconBg="bg-emerald-100"
-            />
-            <StatCard 
-              icon={Clock} 
-              label="Pendientes" 
-              value={stats.pendientes} 
-              color="text-amber-600"
-              bgColor="bg-amber-50"
-              borderColor="border-amber-100"
-              iconBg="bg-amber-100"
-            />
-            <StatCard 
-              icon={XCircle} 
-              label="Rechazados" 
-              value={stats.rechazados} 
-              color="text-red-500"
-              bgColor="bg-red-50"
-              borderColor="border-red-100"
-              iconBg="bg-red-100"
-            />
-          </div>
 
           {/* Loading */}
           {isLoading && (
-            <div className="flex items-center justify-center py-20">
+            <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+                <Loader className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
                 <p className="text-gray-600">Cargando comercios...</p>
               </div>
             </div>
           )}
 
-          {/* Estado vacío */}
+          {/* Sin comercios */}
           {!isLoading && comercios.length === 0 && (
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-pink-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Store className="w-10 h-10 text-purple-400" />
+            <div className="text-center py-16">
+              <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Store className="w-10 h-10 text-purple-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">
-                No tenés comercios registrados
+                Aún no tenés comercios registrados
               </h3>
-              <p className="text-gray-500 mb-6">
-                Comenzá agregando tu primer bar o restaurante
+              <p className="text-gray-600 mb-6">
+                Comenzá registrando tu primer bar o restaurante
               </p>
               <button
                 onClick={handleNew}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-semibold hover:from-pink-600 hover:to-purple-700 transition-all shadow-lg shadow-purple-500/25"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl hover:from-purple-700 hover:to-violet-700 transition-all font-semibold shadow-lg shadow-purple-500/25"
               >
                 <Plus className="w-5 h-5" />
-                Crear Mi Primer Comercio
+                Crear Primer Comercio
               </button>
             </div>
           )}
@@ -240,7 +185,7 @@ const BarManagement = () => {
           {/* Grid de comercios */}
           {!isLoading && comercios.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {comercios.map((comercio) => (
+              {comercios.map(comercio => (
                 <ComercioCard
                   key={comercio.iD_Comercio}
                   comercio={comercio}

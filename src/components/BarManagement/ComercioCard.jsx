@@ -2,38 +2,64 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  MapPin, Phone, Edit2, Trash2, Calendar, CheckCircle, 
-  XCircle, AlertTriangle, Clock, Users, Store, Eye,
-  ChevronRight, Star
+  Edit2, Trash2, MapPin, Phone, Calendar, CheckCircle, 
+  XCircle, Clock, AlertTriangle 
 } from 'lucide-react';
-import { useNotification } from '../../hooks/useNotification';
 import { deleteComercio } from '../../services/comerciosService';
 import { getAllReservas } from '../../services/reservasService';
-import { convertBase64ToImage } from '../../utils/formatters';
+import { getAllTiposComercio } from '../../services/tiposComercioService';
+import { useNotification } from '../../hooks/useNotification';
 import DeleteComercioModal from './DeleteComercioModal';
-
-// Mapeo de tipos de comercio
-const TIPOS_COMERCIO_DESCRIPCION = {
-  1: 'Bar',
-  2: 'Restaurante',
-  3: 'Boliche',
-  4: 'Café',
-  5: 'Pub',
-};
+import { convertBase64ToImage } from '../../utils/formatters';
 
 const ComercioCard = ({ comercio, onEdit, onReload }) => {
   const navigate = useNavigate();
   const { success, error: showError } = useNotification();
-  
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [estadisticas, setEstadisticas] = useState({ total: 0, pendientes: 0, hoy: 0 });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [estadisticas, setEstadisticas] = useState({
+    total: 0,
+    pendientes: 0,
+    hoy: 0
+  });
+  
+  // Estado para tipos de comercio dinámicos
+  const [tiposComercioMap, setTiposComercioMap] = useState({});
 
-  // Imagen del comercio
-  const imageUrl = comercio.foto 
+  const imagenComercio = comercio.foto && comercio.foto.trim() !== ''
     ? convertBase64ToImage(comercio.foto)
     : 'https://via.placeholder.com/400x200?text=Sin+Imagen';
+
+  // Cargar tipos de comercio desde la API
+  useEffect(() => {
+    const cargarTipos = async () => {
+      try {
+        const tipos = await getAllTiposComercio();
+        // Crear mapa de ID -> Descripción
+        const map = {};
+        tipos.forEach(tipo => {
+          const id = tipo.iD_TipoComercio || tipo.ID_TipoComercio;
+          const desc = tipo.descripcion || tipo.Descripcion;
+          if (id && desc) {
+            map[id] = desc;
+          }
+        });
+        setTiposComercioMap(map);
+      } catch (error) {
+        console.error('Error cargando tipos de comercio:', error);
+        // Fallback en caso de error
+        setTiposComercioMap({
+          1: 'Bar',
+          2: 'Boliche',
+          3: 'Restaurante',
+          4: 'Café',
+          5: 'Pub',
+        });
+      }
+    };
+    cargarTipos();
+  }, []);
 
   useEffect(() => {
     cargarEstadisticas();
@@ -47,57 +73,47 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
       const reservasComercio = allReservas.filter(r => r.iD_Comercio === comercio.iD_Comercio);
       
       const pendientes = reservasComercio.filter(r => 
-        r.estado === false && !r.motivoRechazo
+        r.estado === null || r.estado === undefined
       ).length;
       
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      const mañana = new Date(hoy);
-      mañana.setDate(mañana.getDate() + 1);
-      
-      const reservasHoy = reservasComercio.filter(r => {
+      const hoy = reservasComercio.filter(r => {
         const fechaReserva = new Date(r.fechaReserva);
-        return fechaReserva >= hoy && fechaReserva < mañana && r.estado === true;
+        const hoyFecha = new Date();
+        return (
+          fechaReserva.getDate() === hoyFecha.getDate() &&
+          fechaReserva.getMonth() === hoyFecha.getMonth() &&
+          fechaReserva.getFullYear() === hoyFecha.getFullYear()
+        );
       }).length;
-      
+
       setEstadisticas({
         total: reservasComercio.length,
-        pendientes: pendientes,
-        hoy: reservasHoy
+        pendientes,
+        hoy
       });
-    } catch (error) {
-      console.error('Error cargando estadísticas:', error);
+    } catch (err) {
+      console.error('Error al cargar estadísticas:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteClick = () => {
-    setShowDeleteModal(true);
-  };
-
-  const handleConfirmDelete = async () => {
+  const handleEliminar = async () => {
     try {
       setIsDeleting(true);
       await deleteComercio(comercio.iD_Comercio);
-      success('Comercio eliminado exitosamente');
+      success('Comercio eliminado correctamente');
       setShowDeleteModal(false);
-      if (onReload) onReload();
-    } catch (error) {
-      console.error('Error eliminando comercio:', error);
+      onReload?.();
+    } catch (err) {
       showError('Error al eliminar el comercio');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleVerReservas = () => {
-    navigate('/mis-reservas', { state: { activeTab: 'reservas-recibidas' } });
-  };
-
-  // Obtener info del estado
   const getEstadoInfo = () => {
-    if (comercio.estado === false && comercio.motivoRechazo && comercio.motivoRechazo.trim() !== '') {
+    if (comercio.estado === false && comercio.motivoRechazo) {
       return {
         texto: 'Rechazado',
         bgColor: 'bg-red-100',
@@ -128,7 +144,9 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
 
   const estadoInfo = getEstadoInfo();
   const EstadoIcon = estadoInfo.icon;
-  const tipoComercio = TIPOS_COMERCIO_DESCRIPCION[comercio.iD_TipoComercio] || 'Comercio';
+  
+  // Obtener tipo de comercio del mapa dinámico
+  const tipoComercio = tiposComercioMap[comercio.iD_TipoComercio] || 'Comercio';
 
   return (
     <>
@@ -136,7 +154,7 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
         {/* Imagen */}
         <div className="relative h-48 bg-gray-100 overflow-hidden">
           <img
-            src={imageUrl}
+            src={imagenComercio}
             alt={comercio.nombre}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             onError={(e) => {
@@ -145,118 +163,88 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
           />
           
           {/* Badge de estado */}
-          <div className="absolute top-3 right-3">
-            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 ${estadoInfo.bgColor} ${estadoInfo.textColor} border ${estadoInfo.borderColor}`}>
+          <div className="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm border-2 border-emerald-200">
+            <span className={`flex items-center gap-1.5 text-xs font-bold ${estadoInfo.textColor}`}>
               <EstadoIcon className="w-3.5 h-3.5" />
               {estadoInfo.texto}
             </span>
           </div>
 
-          {/* Badge de tipo */}
-          <div className="absolute top-3 left-3">
-            <span className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-gray-700 border border-gray-200">
+          {/* Badge del tipo */}
+          <div className="absolute top-3 left-3 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full border-2 border-purple-200">
+            <span className="text-xs font-bold text-purple-600">
               {tipoComercio}
             </span>
           </div>
-
-          {/* Overlay gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         </div>
-        
-        {/* Contenido */}
+
+        {/* Información */}
         <div className="p-5">
-          {/* Nombre */}
-          <h3 className="text-xl font-bold text-gray-900 mb-3 line-clamp-1">
+          <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-purple-600 transition-colors">
             {comercio.nombre}
           </h3>
 
-          {/* Info */}
-          <div className="space-y-2 mb-4">
-            <div className="flex items-start gap-2 text-gray-600 text-sm">
-              <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-gray-400" />
-              <span className="line-clamp-2">{comercio.direccion || 'Sin dirección'}</span>
+          <div className="space-y-2 mb-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-purple-500 flex-shrink-0" />
+              <span className="truncate">{comercio.direccion}</span>
             </div>
-
-            {comercio.telefono && (
-              <div className="flex items-center gap-2 text-gray-600 text-sm">
-                <Phone className="w-4 h-4 flex-shrink-0 text-gray-400" />
-                <span>{comercio.telefono}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-purple-500 flex-shrink-0" />
+              <span>{comercio.telefono || 'Sin teléfono'}</span>
+            </div>
           </div>
 
-          {/* Mini stats */}
-          {comercio.estado === true && (
-            <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-xl">
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-gray-900">{estadisticas.hoy}</p>
-                <p className="text-xs text-gray-500">Hoy</p>
-              </div>
-              <div className="w-px h-8 bg-gray-200"></div>
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-amber-600">{estadisticas.pendientes}</p>
-                <p className="text-xs text-gray-500">Pendientes</p>
-              </div>
-              <div className="w-px h-8 bg-gray-200"></div>
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-gray-900">{estadisticas.total}</p>
-                <p className="text-xs text-gray-500">Total</p>
-              </div>
+          {/* Estadísticas de reservas */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-purple-50 rounded-xl p-3 text-center">
+              <div className="text-2xl font-bold text-purple-600">{estadisticas.hoy}</div>
+              <div className="text-xs text-gray-600 mt-1">Hoy</div>
             </div>
-          )}
+            <div className="bg-orange-50 rounded-xl p-3 text-center">
+              <div className="text-2xl font-bold text-orange-600">{estadisticas.pendientes}</div>
+              <div className="text-xs text-gray-600 mt-1">Pendientes</div>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-3 text-center">
+              <div className="text-2xl font-bold text-blue-600">{estadisticas.total}</div>
+              <div className="text-xs text-gray-600 mt-1">Total</div>
+            </div>
+          </div>
 
-          {/* Motivo de rechazo */}
-          {comercio.motivoRechazo && comercio.motivoRechazo.trim() !== '' && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
-              <p className="text-xs font-semibold text-red-700 mb-1">Motivo de rechazo:</p>
-              <p className="text-sm text-red-600 line-clamp-2">{comercio.motivoRechazo}</p>
-            </div>
-          )}
-          
-          {/* Botones */}
-          <div className="space-y-2">
-            {/* Ver Reservas - Solo si está visible */}
-            {comercio.estado === true && (
-              <button
-                onClick={handleVerReservas}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-semibold hover:from-pink-600 hover:to-purple-700 transition-all shadow-lg shadow-purple-500/25"
-              >
-                <Calendar className="w-4 h-4" />
-                Ver Reservas Recibidas
-                {estadisticas.pendientes > 0 && (
-                  <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                    {estadisticas.pendientes}
-                  </span>
-                )}
-              </button>
-            )}
-            
-            {/* Editar y Eliminar */}
-            <div className="flex gap-2">
-              <button
-                onClick={onEdit}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-purple-200 text-purple-600 rounded-xl font-medium hover:bg-purple-50 transition-colors"
-              >
-                <Edit2 className="w-4 h-4" />
-                Editar
-              </button>
-              <button
-                onClick={handleDeleteClick}
-                className="w-12 flex items-center justify-center border-2 border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+          {/* Botón Ver Reservas Recibidas */}
+          <button
+            onClick={() => navigate('/reservas-recibidas')}
+            className="w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 mb-3"
+          >
+            <Calendar className="w-5 h-5" />
+            Ver Reservas Recibidas
+          </button>
+
+          {/* Botones de acción */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => onEdit(comercio)}
+              className="flex-1 px-4 py-2.5 bg-white border-2 border-purple-200 text-purple-600 rounded-xl font-semibold hover:bg-purple-50 transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              <Edit2 className="w-4 h-4" />
+              Editar
+            </button>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="px-4 py-2.5 bg-white border-2 border-red-200 text-red-600 rounded-xl font-semibold hover:bg-red-50 transition-all duration-200 flex items-center justify-center"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Modal de eliminar */}
+      {/* Modal de confirmación de eliminación */}
       <DeleteComercioModal
         isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        onConfirm={handleConfirmDelete}
         comercio={comercio}
+        onConfirm={handleEliminar}
+        onCancel={() => setShowDeleteModal(false)}
         isDeleting={isDeleting}
       />
     </>

@@ -325,10 +325,10 @@ const ReservasRecibidas = () => {
           </div>
 
           {/* Título */}
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
+          <h1 className="text-4xl font-bold text-white mb-2">
             Reservas Recibidas
           </h1>
-          <p className="text-purple-200 text-lg max-w-2xl">
+          <p className="text-purple-200/70">
             Gestioná las reservas de tus comercios
           </p>
 

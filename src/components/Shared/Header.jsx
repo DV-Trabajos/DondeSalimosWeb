@@ -69,12 +69,28 @@ const Header = () => {
     return '/mis-reservas'; // Usuario común y admin ven mis reservas
   };
 
-  // Link de Reservas según rol
+  // Texto de Reservas según rol
   const getReservasText = () => {
     if (isComercio && !isAdmin) {
       return 'Reservas Recibidas';
     }
     return 'Mis Reservas';
+  };
+
+  // Link de Reseñas según rol
+  const getReseniasLink = () => {
+    if (isComercio && !isAdmin) {
+      return '/resenias-recibidas'; // Comercio ve reseñas recibidas
+    }
+    return '/mis-resenias'; // Usuario común ve sus reseñas hechas
+  };
+
+  // Texto de Reseñas según rol
+  const getReseniasText = () => {
+    if (isComercio && !isAdmin) {
+      return 'Reseñas Recibidas';
+    }
+    return 'Mis Reseñas';
   };
 
   // Obtener nombre para mostrar
@@ -195,14 +211,14 @@ const Header = () => {
                   </NavLink>
                 )}
 
-                {/* Mis Reseñas - Usuarios comunes y comercios */}
+                {/* Reseñas - Usuarios comunes y comercios */}
                 {!isAdmin && (
                   <NavLink 
-                    to="/mis-resenias" 
-                    active={isActive('/mis-resenias')} 
+                    to={getReseniasLink()} 
+                    active={isActive('/mis-resenias') || isActive('/resenias-recibidas')} 
                     icon={<Star className="w-4 h-4" />}
                   >
-                    Mis Reseñas
+                    {getReseniasText()}
                   </NavLink>
                 )}
               </div>
@@ -335,7 +351,7 @@ const Header = () => {
                           </div>
                           <div>
                             <p className="font-medium text-sm">Cerrar Sesión</p>
-                            <p className="text-xs text-gray-400">Salir de tu cuenta</p>
+                            <p className="text-xs text-red-400">Salir de tu cuenta</p>
                           </div>
                         </button>
                       </div>
@@ -344,27 +360,27 @@ const Header = () => {
                 </div>
               </>
             ) : (
-              <>
+              <div className="hidden md:flex items-center gap-2">
                 <Link
                   to="/login"
-                  className="hidden sm:block px-4 py-2 text-purple-600 hover:bg-purple-50 rounded-xl transition-colors font-medium text-sm"
+                  className="px-4 py-2 text-gray-700 hover:text-purple-600 font-medium rounded-xl hover:bg-purple-50 transition-all"
                 >
                   Iniciar Sesión
                 </Link>
                 <Link
                   to="/login"
                   state={{ register: true }}
-                  className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:opacity-90 transition-opacity font-medium text-sm shadow-lg shadow-purple-500/30"
+                  className="px-5 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-lg shadow-purple-500/25"
                 >
                   Registrarse
                 </Link>
-              </>
+              </div>
             )}
 
-            {/* Botón menú móvil */}
+            {/* Botón hamburguesa móvil */}
             <button
+              className="md:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -444,15 +460,15 @@ const Header = () => {
                     </NavLink>
                   )}
 
-                  {/* Mis Reseñas - Solo usuarios comunes y comercios */}
+                  {/* Reseñas - Usuarios comunes y comercios */}
                   {!isAdmin && (
                     <NavLink 
-                      to="/mis-resenias" 
-                      active={isActive('/mis-resenias')} 
+                      to={getReseniasLink()} 
+                      active={isActive('/mis-resenias') || isActive('/resenias-recibidas')} 
                       icon={<Star className="w-4 h-4" />}
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      Mis Reseñas
+                      {getReseniasText()}
                     </NavLink>
                   )}
 
@@ -463,18 +479,18 @@ const Header = () => {
                       navigate('/profile');
                       setMobileMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors text-left"
+                    className="flex items-center gap-2 px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-xl w-full font-medium"
                   >
                     <User className="w-4 h-4" />
-                    <span>Mi Perfil</span>
+                    Mi Perfil
                   </button>
 
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left"
+                    className="flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl w-full font-medium"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>Cerrar Sesión</span>
+                    Cerrar Sesión
                   </button>
                 </>
               ) : (

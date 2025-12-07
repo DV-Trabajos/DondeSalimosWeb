@@ -23,6 +23,7 @@ import MisResenias from './pages/MisResenias';
 // Páginas de dueño de comercio (rol 3)
 import BarManagement from './pages/BarManagement';
 import MisPublicidades from './pages/MisPublicidades';
+import ReseniasRecibidas from './pages/ReseniasRecibidas';
 
 // Páginas de administrador (rol 2)
 import AdminPanel from './pages/AdminPanel';
@@ -226,6 +227,15 @@ const AppRoutes = () => {
           </ComercioRoute>
         } 
       />
+      
+      <Route 
+        path="/resenias-recibidas" 
+        element={
+          <ComercioRoute>
+            <ReseniasRecibidas />
+          </ComercioRoute>
+        } 
+      />      
       
       {/* RUTAS DE ADMINISTRADOR */}
       <Route 
