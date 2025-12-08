@@ -1,4 +1,4 @@
-// src/services/comerciosService.js - ervicio completo de comercios
+// src/services/comerciosService.js - Servicio completo de comercios
 import { apiGet, apiPost, apiPut, apiDelete } from './api';
 
 // COMERCIOS - CRUD BÁSICO
@@ -78,10 +78,71 @@ export const filterApprovedComercios = (comercios) => {
   return comercios.filter(c => c.estado === true);
 };
 
-// Filtra comercios por tipo
+// FUNCIÓN AUXILIAR: Determina qué emoji se mostraría para un lugar
+const getEmojiForPlace = (place) => {
+  // COMERCIOS LOCALES
+  if (place.isLocal || place.iD_Comercio) {
+    const tipoId = place.iD_TipoComercio || place.comercioData?.iD_TipoComercio;
+    const tipoDesc = place.tipoComercio?.descripcion || place.comercioData?.tipoComercio?.descripcion;
+    
+    if (tipoDesc) {
+      const desc = tipoDesc.toLowerCase();
+      if (desc.includes('bar')) return '🍺';
+      if (desc.includes('boliche') || desc.includes('disco')) return '🪩';
+      if (desc.includes('restaurant')) return '🍽️';
+      if (desc.includes('cafe') || desc.includes('café')) return '☕';
+      if (desc.includes('pub')) return '🍻';
+    }
+    
+    switch (tipoId) {
+      case 1: return '🍺'; // Bar
+      case 2: return '🪩'; // Boliche
+      case 3: return '🍽️'; // Restaurante
+      case 4: return '☕'; // Café
+      case 5: return '🍻'; // Pub
+      default: return '📍';
+    }
+  }
+  
+  // LUGARES DE GOOGLE
+  const types = place.types || [];
+  
+  // Lógica EXACTA de GoogleMapView.jsx - líneas 122-127
+  if (types.includes('bar')) return '🍺';
+  else if (types.includes('night_club')) return '🪩';
+  else if (types.includes('restaurant')) return '🍽️';
+  else if (types.includes('cafe')) return '☕';
+  
+  return '📍';
+};
+
+// FILTRO BASADO EN ÍCONO
 export const filterComerciosByType = (comercios, tipoId) => {
+  // Si no hay filtro o es 'all', retornar todos
   if (!tipoId || tipoId === 'all') return comercios;
-  return comercios.filter(c => c.iD_TipoComercio === parseInt(tipoId));
+  
+  const tipoIdNum = parseInt(tipoId);
+  
+  // Mapeo de tipo a emoji esperado
+  const tipoToEmoji = {
+    1: '🍺', // Bar
+    2: '🪩', // Boliche
+    3: '🍽️', // Restaurante
+    4: '☕', // Café
+    5: '🍻', // Pub
+  };
+  
+  const expectedEmoji = tipoToEmoji[tipoIdNum];
+  
+  if (!expectedEmoji) {
+    return comercios;
+  }
+  
+  // FILTRAR: Solo incluir lugares cuyo emoji coincida con el esperado
+  return comercios.filter(place => {
+    const placeEmoji = getEmojiForPlace(place);
+    return placeEmoji === expectedEmoji;
+  });
 };
 
 // Calcula distancia entre dos puntos

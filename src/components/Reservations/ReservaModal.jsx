@@ -101,13 +101,19 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
   
   const getMinDate = () => {
     const today = new Date();
-    return today.toISOString().split('T')[0];
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const getMaxDate = () => {
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + 30);
-    return maxDate.toISOString().split('T')[0];
+    const year = maxDate.getFullYear();
+    const month = String(maxDate.getMonth() + 1).padStart(2, '0');
+    const day = String(maxDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const validateForm = () => {
@@ -184,13 +190,12 @@ const ReservaModal = ({ isOpen, onClose, comercio, onSuccess }) => {
     setIsLoading(true);
 
     try {
-      // Hora local
       const fechaReservaLocal = `${formData.fecha}T${formData.hora}:00`;
 
       const reservaData = {
         iD_Usuario: user.iD_Usuario,
         iD_Comercio: comercio.iD_Comercio,
-        fechaReserva: fechaReservaLocal, // Formato: "2025-12-13T20:00:00" (sin Z, sin conversión UTC)
+        fechaReserva: fechaReservaLocal, // Formato: "2025-12-13T20:00:00"
         tiempoTolerancia: '00:15:00',
         comensales: parseInt(formData.cantidadPersonas),
         estado: false,

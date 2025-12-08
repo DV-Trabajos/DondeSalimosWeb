@@ -148,7 +148,7 @@ const Header = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
             <img 
-              src="/src/assets/logo-icon.png" 
+              src="/logo.png"
               alt="Dónde Salimos?" 
               className="w-10 h-10 rounded-xl shadow-lg shadow-purple-500/30 group-hover:shadow-purple-500/50 transition-all duration-300 group-hover:scale-105 object-cover"
             />
