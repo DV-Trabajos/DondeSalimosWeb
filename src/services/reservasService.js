@@ -108,6 +108,37 @@ export const getReservasByComercio = async (nombreComercio) => {
   }
 };
 
+// Obtiene las reservas recibidas en los comercios de un usuario dueño de comercio
+// GET: /api/reservas/recibidasUsuario/{usuarioId}
+export const getReservasRecibidasByUsuario = async (usuarioId, comercioIds = []) => {
+  try {
+    // Intentar usar el endpoint optimizado
+    const response = await apiGet(`/api/reservas/recibidasUsuario/${usuarioId}`);
+    
+    if (!response) return [];
+    
+    // Mapear cada reserva al formato del frontend
+    return response.map(mapReservaFromAPI);
+  } catch (error) {
+    // Si el endpoint no existe (404), usar fallback
+    if (error.response?.status === 404 || error.message?.includes('404')) {
+      console.warn('Endpoint /recibidas-usuario no existe, usando fallback...');
+      
+      // Fallback: obtener todas y filtrar
+      const allReservas = await getAllReservas();
+      
+      if (comercioIds.length > 0) {
+        return allReservas.filter(r => comercioIds.includes(r.iD_Comercio));
+      }
+      
+      return allReservas;
+    }
+    
+    console.error(`Error obteniendo reservas recibidas del usuario ${usuarioId}:`, error);
+    throw error;
+  }
+};
+
 // Crea una nueva reserva
 // POST: /api/reservas/crear
 export const createReserva = async (reserva) => {

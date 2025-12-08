@@ -1,6 +1,6 @@
-// AdminComercios.jsx - Con carga dinámica de tipos de comercio
+// AdminComercios.jsx - Gestión de comercios con carga optimizada
 import { useState, useEffect, useMemo } from 'react';
-import { Store, CheckCircle, XCircle, Plus, Edit, Trash2 } from 'lucide-react';
+import { Store, CheckCircle, XCircle, Plus, Edit, Trash2, Clock, ImageOff } from 'lucide-react';
 import AdminLayout from '../../components/Admin/AdminLayout';
 import DataTable from '../../components/Admin/DataTable';
 import { TableFilters, ActiveFilters } from '../../components/Admin/TableFilters';
@@ -9,16 +9,22 @@ import ComercioDetailModal from '../../components/Admin/ComercioDetailModal';
 import CreateComercioModal from '../../components/Admin/CreateComercioModal';
 import ConfirmActionModal from '../../components/Admin/ConfirmActionModal';
 import DeleteConfirmModal from '../../components/Admin/DeleteConfirmModal';
+import LazyImage from '../../components/Shared/LazyImage';
 import { useNotification } from '../../hooks/useNotification';
 import { 
-  getAllComercios, 
   aprobarComercio, 
   rechazarComercio 
 } from '../../services/adminService';
 import { getAllUsuarios } from '../../services/usuariosService';
-import { createComercio, updateComercio, deleteComercio } from '../../services/comerciosService';
+import { 
+  createComercio, 
+  updateComercio, 
+  deleteComercio,
+  getAllComerciosAdmin,
+  getComercioImagen,
+  getComercioById,
+} from '../../services/comerciosService';
 import { getAllTiposComercio, buildTiposComercioMap } from '../../services/tiposComercioService';
-import { convertBase64ToImage } from '../../utils/formatters';
 
 const AdminComercios = () => {
   const [comercios, setComercios] = useState([]);
@@ -50,109 +56,106 @@ const AdminComercios = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [comercioToEdit, setComercioToEdit] = useState(null);
 
-  // Estado para modal de eliminar
+  // Estado para confirmación de acciones (aprobar/rechazar)
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [comercioToAction, setComercioToAction] = useState(null);
+  const [actionType, setActionType] = useState(null);
+
+  // Estado para eliminar
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [comercioToDelete, setComercioToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Estado para modal de aprobar/rechazar
-  const [showActionModal, setShowActionModal] = useState(false);
-  const [actionType, setActionType] = useState(null);
-  const [comercioToAction, setComercioToAction] = useState(null);
-
+  // CARGA INICIAL - Endpoint optimizado (sin fotos)
   useEffect(() => {
     loadData();
   }, []);
 
-  // Función unificada para cargar todos los datos
   const loadData = async () => {
     try {
       setLoading(true);
       const [comerciosData, usuariosData, tiposData] = await Promise.all([
-        getAllComercios(),
+        getAllComerciosAdmin(),
         getAllUsuarios(),
         getAllTiposComercio()
       ]);
       
-      setComercios(comerciosData);
-      setUsuarios(usuariosData);
-      setTiposComercio(tiposData);
-      
-      const map = buildTiposComercioMap(tiposData);
-      setTiposComercioMap(map);
-
+      setComercios(comerciosData || []);
+      setUsuarios(usuariosData || []);
+      setTiposComercio(tiposData || []);
+      setTiposComercioMap(buildTiposComercioMap(tiposData || []));
     } catch (err) {
-      error('Error al cargar datos');
+      console.error('Error cargando datos:', err);
+      error('Error al cargar los datos');
     } finally {
       setLoading(false);
     }
   };
 
-  // FILTRAR COMERCIOS
+  // FILTROS
   const filteredComercios = useMemo(() => {
     return comercios.filter(comercio => {
+      // Filtro por búsqueda
       if (filters.busqueda) {
-        const searchTerm = filters.busqueda.toLowerCase();
-        const nombreComercio = comercio.nombre?.toLowerCase() || '';
-        const nombrePropietario = comercio.usuario?.nombreUsuario?.toLowerCase() || '';
-        const correoPropietario = comercio.usuario?.correo?.toLowerCase() || '';
-        
-        if (!nombreComercio.includes(searchTerm) && 
-            !nombrePropietario.includes(searchTerm) &&
-            !correoPropietario.includes(searchTerm)) {
-          return false;
-        }
+        const searchLower = filters.busqueda.toLowerCase();
+        const matchNombre = comercio.nombre?.toLowerCase().includes(searchLower);
+        const matchDireccion = comercio.direccion?.toLowerCase().includes(searchLower);
+        const matchPropietario = comercio.usuario?.nombreUsuario?.toLowerCase().includes(searchLower);
+        if (!matchNombre && !matchDireccion && !matchPropietario) return false;
       }
 
+      // Filtro por estado
       if (filters.estado !== '') {
-        if (filters.estado === 'aprobado' && !comercio.estado) return false;
-        if (filters.estado === 'pendiente' && (comercio.estado || comercio.motivoRechazo)) return false;
-        if (filters.estado === 'rechazado' && (!comercio.motivoRechazo || comercio.estado)) return false;
+        if (filters.estado === 'aprobado' && comercio.estado !== true) return false;
+        if (filters.estado === 'rechazado' && (!comercio.motivoRechazo || comercio.estado === true)) return false;
+        if (filters.estado === 'pendiente' && (comercio.estado === true || comercio.motivoRechazo)) return false;
       }
 
-      if (filters.tipo && filters.tipo !== comercio.iD_TipoComercio.toString()) {
-        return false;
+      // Filtro por tipo
+      if (filters.tipo !== '') {
+        if (comercio.iD_TipoComercio !== parseInt(filters.tipo)) return false;
       }
 
       return true;
     });
   }, [comercios, filters]);
 
-  // Configuración de filtros con tipos dinámicos
-  const filterConfig = useMemo(() => {
-    const tipoOptions = tiposComercio.map(tipo => ({
-      value: (tipo.iD_TipoComercio || tipo.ID_TipoComercio).toString(),
+  // Generar opciones de tipo para el filtro
+  const tipoOptions = useMemo(() => {
+    return tiposComercio.map(tipo => ({
+      value: String(tipo.iD_TipoComercio || tipo.ID_TipoComercio),
       label: tipo.descripcion || tipo.Descripcion
     }));
+  }, [tiposComercio]);
 
-    return [
-      {
-        key: 'busqueda',
-        type: 'text',
-        label: 'Buscar',
-        value: filters.busqueda,
-        placeholder: 'Buscar por nombre o propietario...'
-      },
-      {
-        key: 'estado',
-        type: 'select',
-        label: 'Estado',
-        value: filters.estado,
-        options: [
-          { value: 'aprobado', label: 'Aprobados' },
-          { value: 'pendiente', label: 'Pendientes' },
-          { value: 'rechazado', label: 'Rechazados' }
-        ]
-      },
-      {
-        key: 'tipo',
-        type: 'select',
-        label: 'Tipo de Comercio',
-        value: filters.tipo,
-        options: tipoOptions
-      }
-    ];
-  }, [filters, tiposComercio]);
+  // CONFIGURACIÓN DE FILTROS
+  const filterConfig = [
+    {
+      key: 'busqueda',
+      type: 'text',
+      label: 'Buscar Comercio',
+      value: filters.busqueda,
+      placeholder: 'Buscar por nombre, dirección o propietario...'
+    },
+    {
+      key: 'estado',
+      type: 'select',
+      label: 'Estado',
+      value: filters.estado,
+      options: [
+        { value: 'aprobado', label: 'Aprobados' },
+        { value: 'pendiente', label: 'Pendientes' },
+        { value: 'rechazado', label: 'Rechazados' }
+      ]
+    },
+    {
+      key: 'tipo',
+      type: 'select',
+      label: 'Tipo de Comercio',
+      value: filters.tipo,
+      options: tipoOptions
+    }
+  ];
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -162,126 +165,36 @@ const AdminComercios = () => {
     setFilters({ busqueda: '', estado: '', tipo: '' });
   };
 
-  // HANDLERS
-  const handleVerDetalle = (comercio) => {
-    setSelectedComercio(comercio);
-    setShowDetailModal(true);
-  };
-
-  const handleEditar = (comercio) => {
-    setComercioToEdit(comercio);
-    setShowEditModal(true);
-  };
-
-  const handleEliminar = (comercio) => {
-    setComercioToDelete(comercio);
-    setShowDeleteModal(true);
-  };
-
-  const handleAprobar = (comercio) => {
-    setComercioToAction(comercio);
-    setActionType('aprobar');
-    setShowActionModal(true);
-  };
-
-  const handleRechazar = (comercio) => {
-    setComercioToAction(comercio);
-    setActionType('rechazar');
-    setShowActionModal(true);
-  };
-
-  const confirmAction = async (motivo = null) => {
-    if (!comercioToAction) return;
-
-    try {
-      if (actionType === 'aprobar') {
-        await aprobarComercio(comercioToAction.iD_Comercio, comercioToAction);
-        success(`Comercio "${comercioToAction.nombre}" aprobado`);
-      } else if (actionType === 'rechazar') {
-        await rechazarComercio(comercioToAction.iD_Comercio, comercioToAction, motivo);
-        success(`Comercio "${comercioToAction.nombre}" rechazado`);
-      }
-      
-      loadData();
-      setShowActionModal(false);
-      setComercioToAction(null);
-      setActionType(null);
-    } catch (err) {
-      error(`Error al ${actionType} el comercio`);
-    }
-  };
-
-  const handleCreateComercio = async (comercioData) => {
-    try {
-      await createComercio(comercioData);
-      success('Comercio creado correctamente');
-      setShowCreateModal(false);
-      loadData();
-    } catch (err) {
-      error('Error al crear el comercio');
-      throw err;
-    }
-  };
-
-  const handleUpdateComercio = async (comercioData) => {
-    try {
-      await updateComercio(comercioData.iD_Comercio, comercioData);
-      success('Comercio actualizado correctamente');
-      setShowEditModal(false);
-      setComercioToEdit(null);
-      loadData();
-    } catch (err) {
-      error('Error al actualizar el comercio');
-      throw err;
-    }
-  };
-
-  const confirmDeleteComercio = async () => {
-    if (!comercioToDelete) return;
-
-    try {
-      setIsDeleting(true);
-      await deleteComercio(comercioToDelete.iD_Comercio);
-      success(`Comercio "${comercioToDelete.nombre}" eliminado`);
-      setShowDeleteModal(false);
-      setComercioToDelete(null);
-      loadData();
-    } catch (err) {
-      error('Error al eliminar el comercio');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // COLUMNAS
+  // CONFIGURACIÓN DE COLUMNAS
   const columns = [
     {
       key: 'nombre',
       header: 'Comercio',
       accessor: (row) => row.nombre,
-      render: (row) => {
-        const imagenBase64 = row.foto || row.imagen;
-        
-        return (
-          <div className="flex items-center gap-3">
-            {imagenBase64 ? (
-              <img 
-                src={convertBase64ToImage(imagenBase64)} 
-                alt={row.nombre}
-                className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                <Store className="w-6 h-6 text-gray-400" />
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <LazyImage
+            className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0"
+            loadImage={() => getComercioImagen(row.iD_Comercio)}
+            alt={row.nombre}
+            eager={false}
+            placeholder={
+              <div className="w-full h-full bg-gradient-to-br from-purple-100 to-violet-100 animate-pulse rounded-lg flex items-center justify-center">
+                <Store className="w-5 h-5 text-purple-300" />
               </div>
-            )}
-            <div>
-              <p className="font-semibold text-gray-900">{row.nombre}</p>
-              <p className="text-xs text-gray-500">{row.direccion}</p>
-            </div>
+            }
+            errorComponent={
+              <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
+                <Store className="w-5 h-5 text-gray-400" />
+              </div>
+            }
+          />
+          <div>
+            <p className="font-semibold text-gray-900">{row.nombre}</p>
+            <p className="text-xs text-gray-500">{row.direccion}</p>
           </div>
-        );
-      },
+        </div>
+      ),
       width: '30%'
     },
     {
@@ -327,13 +240,13 @@ const AdminComercios = () => {
               Rechazado
             </span>
           );
-        } else {
-          return (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
-              Pendiente
-            </span>
-          );
         }
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+            <Clock className="w-3.5 h-3.5" />
+            Pendiente
+          </span>
+        );
       }
     },
     {
@@ -342,53 +255,43 @@ const AdminComercios = () => {
       accessor: () => '',
       sortable: false,
       render: (row) => (
-        <div className="flex items-center justify-center gap-2">
-          {/* Botones de aprobar/rechazar - SOLO para pendientes */}
+        <div className="flex items-center gap-2">
+          {/* Aprobar (si está pendiente) */}
           {!row.estado && !row.motivoRechazo && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAprobar(row);
-                }}
-                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                title="Aprobar comercio"
-              >
-                <CheckCircle className="w-4 h-4" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRechazar(row);
-                }}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Rechazar comercio"
-              >
-                <XCircle className="w-4 h-4" />
-              </button>
-            </>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleAprobar(row); }}
+              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+              title="Aprobar"
+            >
+              <CheckCircle className="w-4 h-4" />
+            </button>
           )}
           
-          {/* Botón de editar */}
+          {/* Rechazar (si está pendiente) */}
+          {!row.estado && !row.motivoRechazo && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleRechazar(row); }}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Rechazar"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          )}
+          
+          {/* Editar */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditar(row);
-            }}
-            className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-            title="Editar comercio"
+            onClick={(e) => { e.stopPropagation(); handleEditar(row); }}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="Editar"
           >
             <Edit className="w-4 h-4" />
           </button>
           
-          {/* Botón de eliminar */}
+          {/* Eliminar */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEliminar(row);
-            }}
+            onClick={(e) => { e.stopPropagation(); handleEliminar(row); }}
             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Eliminar comercio"
+            title="Eliminar"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -397,6 +300,113 @@ const AdminComercios = () => {
     }
   ];
 
+  // ACCIONES
+  const handleAprobar = (comercio) => {
+    setComercioToAction(comercio);
+    setActionType('aprobar');
+    setShowActionModal(true);
+  };
+
+  const handleRechazar = (comercio) => {
+    setComercioToAction(comercio);
+    setActionType('rechazar');
+    setShowActionModal(true);
+  };
+
+  const confirmAction = async (motivo = null) => {
+    if (!comercioToAction) return;
+
+    try {
+      if (actionType === 'aprobar') {
+        await aprobarComercio(comercioToAction.iD_Comercio, comercioToAction);
+        success(`Comercio "${comercioToAction.nombre}" aprobado`);
+      } else if (actionType === 'rechazar') {
+        await rechazarComercio(comercioToAction.iD_Comercio, comercioToAction, motivo);
+        success(`Comercio "${comercioToAction.nombre}" rechazado`);
+      }
+      
+      loadData();
+      setShowActionModal(false);
+      setComercioToAction(null);
+      setActionType(null);
+    } catch (err) {
+      error(`Error al ${actionType} el comercio`);
+    }
+  };
+
+  // Para editar, necesitamos cargar el comercio completo con foto
+  const handleEditar = async (comercio) => {
+    try {
+      const comercioCompleto = await getComercioById(comercio.iD_Comercio);
+      setComercioToEdit(comercioCompleto);
+      setShowEditModal(true);
+    } catch (err) {
+      console.error('Error cargando comercio:', err);
+      error('Error al cargar el comercio');
+    }
+  };
+
+  const handleEliminar = (comercio) => {
+    setComercioToDelete(comercio);
+    setShowDeleteModal(true);
+  };
+
+  const handleCreateComercio = async (comercioData) => {
+    try {
+      await createComercio(comercioData);
+      success('Comercio creado correctamente');
+      setShowCreateModal(false);
+      loadData();
+    } catch (err) {
+      error('Error al crear el comercio');
+      throw err;
+    }
+  };
+
+  const handleUpdateComercio = async (comercioData) => {
+    try {
+      await updateComercio(comercioData.iD_Comercio, comercioData);
+      success('Comercio actualizado correctamente');
+      setShowEditModal(false);
+      setComercioToEdit(null);
+      loadData();
+    } catch (err) {
+      error('Error al actualizar el comercio');
+      throw err;
+    }
+  };
+
+  const confirmDeleteComercio = async () => {
+    if (!comercioToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteComercio(comercioToDelete.iD_Comercio);
+      success(`Comercio "${comercioToDelete.nombre}" eliminado`);
+      setShowDeleteModal(false);
+      setComercioToDelete(null);
+      loadData();
+    } catch (err) {
+      error('Error al eliminar el comercio');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Para ver detalle, también necesitamos cargar la foto
+  const handleVerDetalle = async (comercio) => {
+    try {
+      const comercioCompleto = await getComercioById(comercio.iD_Comercio);
+      setSelectedComercio(comercioCompleto);
+      setShowDetailModal(true);
+    } catch (err) {
+      // Si falla, mostrar sin foto
+      setSelectedComercio(comercio);
+      setShowDetailModal(true);
+    }
+  };
+
+  // ACCIONES DEL HEADER
   const headerActions = (
     <div className="flex items-center gap-2">
       <ExportMenu 
@@ -414,6 +424,7 @@ const AdminComercios = () => {
     </div>
   );
 
+  // LOADING
   if (loading) {
     return (
       <AdminLayout title="Gestión de Comercios" subtitle="Cargando...">
@@ -426,14 +437,14 @@ const AdminComercios = () => {
 
   const pendientes = comercios.filter(c => !c.estado && !c.motivoRechazo).length;
   const aprobados = comercios.filter(c => c.estado).length;
-  const rechazados = comercios.filter(c => !c.estado && c.motivoRechazo).length;
 
   return (
     <AdminLayout
       title="Gestión de Comercios"
-      subtitle={`${comercios.length} comercios • ${pendientes} pendientes • ${aprobados} aprobados • ${rechazados} rechazados`}
+      subtitle={`${filteredComercios.length} comercio${filteredComercios.length !== 1 ? 's' : ''} encontrado${filteredComercios.length !== 1 ? 's' : ''} • ${pendientes} pendientes • ${aprobados} aprobados`}
       actions={headerActions}
     >
+      {/* Filtros */}
       <div className="mb-6">
         <TableFilters
           filters={filterConfig}
@@ -443,6 +454,7 @@ const AdminComercios = () => {
         />
       </div>
 
+      {/* Filtros Activos */}
       {(filters.busqueda || filters.estado || filters.tipo) && (
         <div className="mb-4">
           <ActiveFilters
@@ -453,6 +465,7 @@ const AdminComercios = () => {
         </div>
       )}
 
+      {/* Tabla */}
       <DataTable
         data={filteredComercios}
         columns={columns}
@@ -460,61 +473,85 @@ const AdminComercios = () => {
         sortable={true}
         searchable={false}
         pagination={true}
-        selectable={true}
         onRowClick={(comercio) => handleVerDetalle(comercio)}
-        emptyMessage="No hay comercios registrados"
+        emptyMessage="No se encontraron comercios con los filtros aplicados"
       />
 
-      <ComercioDetailModal
-        comercio={selectedComercio}
-        isOpen={showDetailModal}
-        onClose={() => {
-          setShowDetailModal(false);
-          setSelectedComercio(null);
-        }}
-        tiposComercioMap={tiposComercioMap}
-      />
+      {/* MODALES */}
+      
+      {/* Modal de Detalle */}
+      {showDetailModal && selectedComercio && (
+        <ComercioDetailModal
+          comercio={selectedComercio}
+          tiposComercioMap={tiposComercioMap}
+          isOpen={showDetailModal}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedComercio(null);
+          }}
+          onAprobar={handleAprobar}
+          onRechazar={handleRechazar}
+          onEdit={handleEditar}
+        />
+      )}
 
-      <CreateComercioModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSubmit={handleCreateComercio}
-        usuarios={usuarios}
-      />
+      {/* Modal de Crear */}
+      {showCreateModal && (
+        <CreateComercioModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateComercio}
+          usuarios={usuarios}
+          tiposComercio={tiposComercio}
+        />
+      )}
 
-      <CreateComercioModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setComercioToEdit(null);
-        }}
-        onSubmit={handleUpdateComercio}
-        usuarios={usuarios}
-        comercio={comercioToEdit}
-      />
+      {/* Modal de Editar */}
+      {showEditModal && comercioToEdit && (
+        <CreateComercioModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setComercioToEdit(null);
+          }}
+          onSubmit={handleUpdateComercio}
+          comercio={comercioToEdit}
+          usuarios={usuarios}
+          tiposComercio={tiposComercio}
+          isEditMode={true}
+        />
+      )}
 
-      <ConfirmActionModal
-        isOpen={showActionModal}
-        onClose={() => {
-          setShowActionModal(false);
-          setComercioToAction(null);
-          setActionType(null);
-        }}
-        onConfirm={confirmAction}
-        comercio={comercioToAction}
-        actionType={actionType}
-      />
+      {/* Modal de Confirmación de Acción */}
+      {showActionModal && comercioToAction && (
+        <ConfirmActionModal
+          isOpen={showActionModal}
+          onClose={() => {
+            setShowActionModal(false);
+            setComercioToAction(null);
+            setActionType(null);
+          }}
+          onConfirm={confirmAction}
+          actionType={actionType}
+          itemName={comercioToAction.nombre}
+          itemType="comercio"
+        />
+      )}
 
-      <DeleteConfirmModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setComercioToDelete(null);
-        }}
-        onConfirm={confirmDeleteComercio}
-        comercio={comercioToDelete}
-        isDeleting={isDeleting}
-      />
+      {/* Modal de Eliminar */}
+      {showDeleteModal && comercioToDelete && (
+        <DeleteConfirmModal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setComercioToDelete(null);
+          }}
+          onConfirm={confirmDeleteComercio}
+          itemName={comercioToDelete.nombre}
+          itemType="comercio"
+          isDeleting={isDeleting}
+        />
+      )}
     </AdminLayout>
   );
 };

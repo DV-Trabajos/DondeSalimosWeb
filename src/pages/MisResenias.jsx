@@ -171,7 +171,7 @@ const MisResenias = () => {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      {/* Hero Section */}
+      {/* Hero Section con banner de estadísticas */}
       <div className="relative bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 overflow-hidden">
         {/* Decoraciones */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -190,7 +190,7 @@ const MisResenias = () => {
           </div>
 
           {/* Título */}
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-4xl font-bold text-white mb-2">
             Mis Reseñas
           </h1>
           <p className="text-purple-200/70">

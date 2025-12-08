@@ -72,6 +72,45 @@ export const eliminarUsuario = async (id) => {
   }
 };
 
+// VERIFICACIÓN DE SESIÓN 
+export const verificarSesion = async () => {
+  try {
+    const response = await api.get('/api/Usuarios/verificarSesion');
+    return response.data;
+  } catch (error) {
+    // Si es 401, el token expiró o es inválido
+    if (error.response?.status === 401) {
+      return {
+        sesionValida: false,
+        requiereLogout: true,
+        mensaje: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.'
+      };
+    }
+    
+    // Si es 404, el usuario fue eliminado
+    if (error.response?.status === 404) {
+      return {
+        sesionValida: false,
+        requiereLogout: true,
+        mensaje: 'Tu cuenta ya no existe en el sistema.'
+      };
+    }
+
+    // Para errores de red, no forzar logout (podría ser temporal)
+    if (!error.response) {
+      console.warn('[verificarSesion] Error de conexión, no se forzará logout');
+      return {
+        sesionValida: true, // Asumimos válida para no afectar UX
+        requiereLogout: false,
+        mensaje: null
+      };
+    }
+
+    // Otros errores del servidor
+    throw error;
+  }
+};
+
 // FUNCIONES DE AUTENTICACIÓN
 // Inicia sesión con Google
 // POST: /api/usuarios/iniciarSesionConGoogle
@@ -146,15 +185,24 @@ export const canEliminarUsuario = (usuario, currentUserId) => {
 };
 
 export default {
+  // CRUD
   getAllUsuarios,
   getUsuarioById,
   searchUsuariosByName,
   getUsuarioByEmail,
   actualizarUsuario,
   desactivarUsuario,
+  cambiarEstadoUsuario,
   eliminarUsuario,
+  
+  // Verificación de sesión
+  verificarSesion,
+  
+  // Autenticación
   signInWithGoogle,
   signUpWithGoogle,
+  
+  // Utilidades
   getUsersStats,
   canDesactivarUsuario,
   canEliminarUsuario,

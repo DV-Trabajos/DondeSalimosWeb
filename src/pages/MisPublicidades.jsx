@@ -12,7 +12,7 @@ import DeletePublicidadModal from '../components/Publicidad/DeletePublicidadModa
 import { useNotification } from '../hooks/useNotification';
 import { getComerciosByUsuario } from '../services/comerciosService';
 import { 
-  getAllPublicidades,
+  getPublicidadesByUsuario,
   createPublicidad,
   deletePublicidad,
   formatTimeSpanToDays,
@@ -67,12 +67,10 @@ const MisPublicidades = () => {
       const comerciosData = await getComerciosByUsuario(user.iD_Usuario);
       setComercios(comerciosData || []);
       
-      const allPublicidades = await getAllPublicidades();
-      const userComercioIds = (comerciosData || []).map(c => c.iD_Comercio);
-      const userPublicidades = (allPublicidades || []).filter(
-        p => userComercioIds.includes(p.iD_Comercio)
-      );
-      setPublicidades(userPublicidades);
+      const comercioIds = (comerciosData || []).map(c => c.iD_Comercio);
+      const publicidadesData = await getPublicidadesByUsuario(user.iD_Usuario, comercioIds);
+      
+      setPublicidades(publicidadesData || []);
       
     } catch (err) {
       showError('Error al cargar los datos');
@@ -349,26 +347,16 @@ const MisPublicidades = () => {
               <span className="text-white font-semibold">{stats.pendientes}</span>
               <span className="text-purple-300/70 text-sm">pendientes</span>
             </div>
-            {stats.sinPagar > 0 && (
-              <>
-                <div className="w-px h-6 bg-white/20"></div>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-orange-400" />
-                  <span className="text-white font-semibold">{stats.sinPagar}</span>
-                  <span className="text-purple-300/70 text-sm">sin pagar</span>
-                </div>
-              </>
-            )}
             <div className="w-px h-6 bg-white/20"></div>
             <div className="flex items-center gap-2">
-              <Eye className="w-5 h-5 text-blue-400" />
+              <Eye className="w-5 h-5 text-purple-300" />
               <span className="text-white font-semibold">{stats.totalVisualizaciones}</span>
               <span className="text-purple-300/70 text-sm">vistas</span>
             </div>
           </div>
         </div>
 
-        {/* Wave (Onda decorativa) */}
+        {/* Wave */}
         <div className="absolute bottom-0 left-0 right-0">
           <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
             <path d="M0 60L60 55C120 50 240 40 360 35C480 30 600 30 720 32.5C840 35 960 40 1080 42.5C1200 45 1320 45 1380 45L1440 45V60H1380C1320 60 1200 60 1080 60C960 60 840 60 720 60C600 60 480 60 360 60C240 60 120 60 60 60H0V60Z" fill="#F9FAFB"/>
@@ -376,53 +364,42 @@ const MisPublicidades = () => {
         </div>
       </div>
 
-      {/* Contenido principal */}
+      {/* Contenido */}
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           {loading ? (
-            // Estado de carga
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-600">Cargando publicidades...</p>
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-500">Cargando publicidades...</p>
             </div>
           ) : (
             <>
-              {/* Formulario de crear publicidad */}
+              {/* Formulario de Nueva Publicidad */}
               {showForm && (
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-8">
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-gray-900">Nueva Publicidad</h3>
-                    <button
-                      onClick={() => {
-                        setShowForm(false);
-                        setSelectedComercio('');
-                        setDescripcion('');
-                        setDuracion('7');
-                        setImagen(null);
-                        setImagePreview(null);
-                      }}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <XCircle className="w-6 h-6" />
-                    </button>
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-purple-500" />
+                      Crear Nueva Publicidad
+                    </h2>
                   </div>
 
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Comercio */}
+                    {/* Selección de comercio */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Comercio
+                        <Store className="w-4 h-4 inline mr-1" />
+                        Comercio *
                       </label>
                       <select
                         value={selectedComercio}
                         onChange={(e) => setSelectedComercio(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none transition"
-                        required
+                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 transition-all"
                       >
                         <option value="">Seleccionar comercio</option>
-                        {comercios.filter(c => c.estado).map((comercio) => (
-                          <option key={comercio.iD_Comercio} value={comercio.iD_Comercio}>
-                            {comercio.nombre}
+                        {comercios.map(c => (
+                          <option key={c.iD_Comercio} value={c.iD_Comercio}>
+                            {c.nombre}
                           </option>
                         ))}
                       </select>
@@ -431,44 +408,47 @@ const MisPublicidades = () => {
                     {/* Descripción */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Descripción
+                        Descripción *
                       </label>
                       <textarea
                         value={descripcion}
                         onChange={(e) => setDescripcion(e.target.value)}
-                        placeholder="Describe tu publicidad..."
                         rows={3}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none transition resize-none"
-                        required
+                        placeholder="Describe tu publicidad (promociones, eventos especiales...)"
+                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 transition-all resize-none"
                       />
                     </div>
 
                     {/* Duración */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Duración
+                        <Calendar className="w-4 h-4 inline mr-1" />
+                        Duración *
                       </label>
                       <div className="grid grid-cols-3 gap-4">
-                        {[
-                          { dias: '7', label: '7 días', precio: PRECIOS[7] },
-                          { dias: '15', label: '15 días', precio: PRECIOS[15] },
-                          { dias: '30', label: '30 días', precio: PRECIOS[30] },
-                        ].map((option) => (
-                          <button
-                            key={option.dias}
-                            type="button"
-                            onClick={() => setDuracion(option.dias)}
-                            className={`p-4 rounded-xl border-2 transition-all ${
-                              duracion === option.dias
-                                ? 'border-purple-500 bg-purple-50'
-                                : 'border-gray-200 hover:border-gray-300'
+                        {Object.entries(PRECIOS).map(([dias, precio]) => (
+                          <label
+                            key={dias}
+                            className={`relative flex flex-col items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                              duracion === dias 
+                                ? 'border-purple-500 bg-purple-50' 
+                                : 'border-gray-200 hover:border-purple-300'
                             }`}
                           >
-                            <p className="font-bold text-gray-900">{option.label}</p>
-                            <p className="text-sm text-purple-600 font-semibold mt-1">
-                              {formatPrecio(option.precio)}
-                            </p>
-                          </button>
+                            <input
+                              type="radio"
+                              name="duracion"
+                              value={dias}
+                              checked={duracion === dias}
+                              onChange={(e) => setDuracion(e.target.value)}
+                              className="sr-only"
+                            />
+                            <span className="text-2xl font-bold text-gray-900">{dias}</span>
+                            <span className="text-sm text-gray-500">días</span>
+                            <span className="mt-2 text-sm font-semibold text-purple-600">
+                              {formatPrecio(precio)}
+                            </span>
+                          </label>
                         ))}
                       </div>
                     </div>
@@ -476,9 +456,10 @@ const MisPublicidades = () => {
                     {/* Imagen */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Imagen
+                        <ImagePlus className="w-4 h-4 inline mr-1" />
+                        Imagen *
                       </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-purple-400 transition">
+                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-purple-400 transition-colors">
                         {imagePreview ? (
                           <div className="relative">
                             <img
@@ -608,40 +589,28 @@ const MisPublicidades = () => {
                           </p>
 
                           {/* Información */}
-                          <div className="flex items-center justify-between text-sm mb-4 pb-4 border-b border-gray-100">
-                            <div className="flex items-center gap-1 text-gray-500">
-                              <Clock className="w-4 h-4" />
-                              <span>{diasDuracion} días</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-gray-500">
+                          <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                            <div className="flex items-center gap-1">
                               <Eye className="w-4 h-4" />
-                              <span>{pub.visualizaciones || 0}</span>
+                              <span>{pub.visualizaciones || 0} vistas</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>{diasDuracion} días</span>
                             </div>
                           </div>
 
-                          {/* Motivo de rechazo */}
+                          {/* Motivo de rechazo si existe */}
                           {pub.motivoRechazo && (
                             <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
-                              <p className="text-xs text-red-600 font-medium flex items-start gap-2">
-                                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                <span>{pub.motivoRechazo}</span>
-                              </p>
+                              <p className="text-xs text-red-600 font-medium">Motivo de rechazo:</p>
+                              <p className="text-sm text-red-700">{pub.motivoRechazo}</p>
                             </div>
                           )}
 
-                          {/* Precio */}
-                          {!pub.pago && pub.estado && (
-                            <div className="mb-4 p-3 bg-purple-50 border border-purple-100 rounded-lg">
-                              <p className="text-sm text-purple-700 font-semibold flex items-center justify-between">
-                                <span>Precio:</span>
-                                <span>{formatPrecio(precio)}</span>
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Botones de acción */}
-                          <div className="flex gap-2">
-                            {/* Botón pagar solo si está aprobada pero no pagada */}
+                          {/* Acciones */}
+                          <div className="space-y-2">
+                            {/* Botón de pagar si aplica */}
                             {pub.estado && !pub.pago && (
                               <button
                                 onClick={() => handlePagar(pub)}

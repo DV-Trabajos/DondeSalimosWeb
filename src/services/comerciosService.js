@@ -1,7 +1,8 @@
-// src/services/comerciosService.js - Servicio completo de comercios
+// comerciosService.js - Servicio completo de comercios con carga optimizada
 import { apiGet, apiPost, apiPut, apiDelete } from './api';
+import api from './api';
 
-// COMERCIOS - CRUD BÁSICO
+// CRUD BÁSICO
 // Obtiene todos los comercios
 export const getAllComercios = async () => {
   try {
@@ -72,132 +73,142 @@ export const deleteComercio = async (id) => {
   }
 };
 
-// FILTROS Y UTILIDADES
+// ENDPOINTS OPTIMIZADOS
+// Obtiene todos los comercios SIN fotos (carga rápida)
+export const getAllComerciosAdmin = async () => {
+  try {
+    const response = await api.get('/api/Comercios/listadoAdmin');
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Obtiene solo la foto de un comercio específico
+export const getComercioImagen = async (id) => {
+  try {
+    const response = await api.get(`/api/Comercios/${id}/imagen`);
+    
+    if (response.data && response.data.foto) {
+      // Convertir a formato data URL si no lo tiene
+      const foto = response.data.foto;
+      if (typeof foto === 'string' && !foto.startsWith('data:')) {
+        return `data:image/jpeg;base64,${foto}`;
+      }
+      return foto;
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error cargando imagen de comercio ${id}:`, error);
+    return null;
+  }
+};
+
+// Obtiene la URL directa de la imagen
+export const getComercioImagenUrl = (id) => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://dondesalimos-api.azurewebsites.net';
+  return `${baseUrl}/api/Comercios/${id}/imagen-raw`;
+};
+
+// Pre-carga un lote de imágenes de comercios en paralelo
+export const preloadComercioImagenes = async (ids, batchSize = 5) => {
+  const imagenesMap = new Map();
+  
+  // Procesar en lotes para no sobrecargar
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = ids.slice(i, i + batchSize);
+    
+    const results = await Promise.allSettled(
+      batch.map(async (id) => {
+        const imagen = await getComercioImagen(id);
+        return { id, imagen };
+      })
+    );
+    
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value.imagen) {
+        imagenesMap.set(result.value.id, result.value.imagen);
+      }
+    });
+  }
+  
+  return imagenesMap;
+};
+
+// FILTROS
 // Filtra comercios aprobados
 export const filterApprovedComercios = (comercios) => {
-  return comercios.filter(c => c.estado === true);
+  return comercios.filter(comercio => comercio.estado === true);
 };
 
-// FUNCIÓN AUXILIAR: Determina qué emoji se mostraría para un lugar
-const getEmojiForPlace = (place) => {
-  // COMERCIOS LOCALES
-  if (place.isLocal || place.iD_Comercio) {
-    const tipoId = place.iD_TipoComercio || place.comercioData?.iD_TipoComercio;
-    const tipoDesc = place.tipoComercio?.descripcion || place.comercioData?.tipoComercio?.descripcion;
-    
-    if (tipoDesc) {
-      const desc = tipoDesc.toLowerCase();
-      if (desc.includes('bar')) return '🍺';
-      if (desc.includes('boliche') || desc.includes('disco')) return '🪩';
-      if (desc.includes('restaurant')) return '🍽️';
-      if (desc.includes('cafe') || desc.includes('café')) return '☕';
-      if (desc.includes('pub')) return '🍻';
-    }
-    
-    switch (tipoId) {
-      case 1: return '🍺'; // Bar
-      case 2: return '🪩'; // Boliche
-      case 3: return '🍽️'; // Restaurante
-      case 4: return '☕'; // Café
-      case 5: return '🍻'; // Pub
-      default: return '📍';
-    }
-  }
-  
-  // LUGARES DE GOOGLE
-  const types = place.types || [];
-  
-  // Lógica EXACTA de GoogleMapView.jsx - líneas 122-127
-  if (types.includes('bar')) return '🍺';
-  else if (types.includes('night_club')) return '🪩';
-  else if (types.includes('restaurant')) return '🍽️';
-  else if (types.includes('cafe')) return '☕';
-  
-  return '📍';
-};
-
-// FILTRO BASADO EN ÍCONO
+// Filtra comercios por tipo
 export const filterComerciosByType = (comercios, tipoId) => {
-  // Si no hay filtro o es 'all', retornar todos
-  if (!tipoId || tipoId === 'all') return comercios;
-  
-  const tipoIdNum = parseInt(tipoId);
-  
-  // Mapeo de tipo a emoji esperado
-  const tipoToEmoji = {
-    1: '🍺', // Bar
-    2: '🪩', // Boliche
-    3: '🍽️', // Restaurante
-    4: '☕', // Café
-    5: '🍻', // Pub
-  };
-  
-  const expectedEmoji = tipoToEmoji[tipoIdNum];
-  
-  if (!expectedEmoji) {
-    return comercios;
-  }
-  
-  // FILTRAR: Solo incluir lugares cuyo emoji coincida con el esperado
-  return comercios.filter(place => {
-    const placeEmoji = getEmojiForPlace(place);
-    return placeEmoji === expectedEmoji;
-  });
+  if (!tipoId) return comercios;
+  return comercios.filter(comercio => 
+    comercio.iD_TipoComercio === tipoId || comercio.ID_TipoComercio === tipoId
+  );
 };
 
-// Calcula distancia entre dos puntos
+// Filtra comercios pendientes de aprobación
+export const filterComerciosPendientes = (comercios) => {
+  return comercios.filter(comercio => !comercio.estado && !comercio.motivoRechazo);
+};
+
+// Filtra comercios rechazados
+export const filterComerciosRechazados = (comercios) => {
+  return comercios.filter(comercio => !comercio.estado && comercio.motivoRechazo);
+};
+
+// UTILIDADES DE GEOLOCALIZACIÓN
+// Calcula la distancia entre dos puntos (fórmula Haversine)
 export const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Radio de la Tierra en km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const distance = R * c;
-  
-  return distance;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distancia en km
 };
 
-// Ordena comercios por distancia a un punto
+// Ordena comercios por distancia desde una ubicación
 export const sortComerciosByDistance = (comercios, userLat, userLng) => {
-  if (!userLat || !userLng) return comercios;
-  
-  return comercios
+  return [...comercios]
     .map(comercio => ({
       ...comercio,
-      distance: comercio.latitud && comercio.longitud
-        ? calculateDistance(userLat, userLng, comercio.latitud, comercio.longitud)
-        : Infinity
+      distance: calculateDistance(
+        userLat,
+        userLng,
+        comercio.latitud || comercio.Latitud,
+        comercio.longitud || comercio.Longitud
+      ),
     }))
     .sort((a, b) => a.distance - b.distance);
 };
 
 // Geocodifica una dirección usando Google Geocoding API
-export const geocodeAddress = async (address) => {
-  const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  
-  if (!address || !GOOGLE_MAPS_API_KEY) {
-    throw new Error('Dirección o API Key faltante');
-  }
-
+export const geocodeAddress = async (direccion) => {
   try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-    
-    const response = await fetch(url);
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const encodedAddress = encodeURIComponent(direccion);
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}`
+    );
     const data = await response.json();
 
     if (data.status === 'OK' && data.results.length > 0) {
       const location = data.results[0].geometry.location;
       return {
         lat: location.lat,
-        lng: location.lng
+        lng: location.lng,
+        formattedAddress: data.results[0].formatted_address,
       };
     } else if (data.status === 'ZERO_RESULTS') {
-      throw new Error('No se encontraron resultados para esta dirección.');
+      throw new Error('No se encontró la dirección. Verifica que esté escrita correctamente.');
     } else if (data.status === 'REQUEST_DENIED') {
       throw new Error('Error de API Key. Contacta al administrador.');
     } else {
@@ -222,8 +233,24 @@ export const validateCoordinates = (lat, lng) => {
   );
 };
 
-// Export default para compatibilidad
+// ESTADÍSTICAS
+// Obtiene estadísticas de comercios
+export const getComerciosStats = (comercios) => {
+  const aprobados = comercios.filter(c => c.estado === true);
+  const pendientes = comercios.filter(c => !c.estado && !c.motivoRechazo);
+  const rechazados = comercios.filter(c => !c.estado && c.motivoRechazo);
+  
+  return {
+    total: comercios.length,
+    aprobados: aprobados.length,
+    pendientes: pendientes.length,
+    rechazados: rechazados.length,
+  };
+};
+
+// EXPORT DEFAULT
 export default {
+  // CRUD básico
   getAllComercios,
   getComercioById,
   searchComerciosByName,
@@ -231,10 +258,25 @@ export default {
   createComercio,
   updateComercio,
   deleteComercio,
+  
+  // Optimizados (carga rápida)
+  getAllComerciosAdmin,
+  getComercioImagen,
+  getComercioImagenUrl,
+  preloadComercioImagenes,
+  
+  // Filtros
   filterApprovedComercios,
   filterComerciosByType,
+  filterComerciosPendientes,
+  filterComerciosRechazados,
+  
+  // Geolocalización
   calculateDistance,
   sortComerciosByDistance,
   geocodeAddress,
   validateCoordinates,
+  
+  // Estadísticas
+  getComerciosStats,
 };

@@ -1,7 +1,7 @@
-// publicidadesService.js - Servicio de publicidades
+// publicidadesService.js - Servicio de publicidades con carga optimizada
 import api from './api';
 
-// HELPERS
+// HELPERS - CONVERSIÓN DE TIEMPO
 // Convierte días a formato TimeSpan del backend
 // 7 días = "7:00:00", 15 días = "15:00:00", 30 días = "23:00:00"
 const diasToTimeSpan = (dias) => {
@@ -80,7 +80,8 @@ export const searchPublicidadesByComercio = async (nombreComercio) => {
 // Crea una nueva publicidad
 // POST: api/publicidades/crear
 export const createPublicidad = async (publicidadData) => {
-  // Si ya viene en formato TimeSpan (string con ":"), usarlo directamente - Solo convertir si es un número
+  // Si ya viene en formato TimeSpan (string con ":"), usarlo directamente
+  // Solo convertir si es un número
   let tiempoTimeSpan = publicidadData.tiempo;
 
   if (typeof publicidadData.tiempo === 'number') {
@@ -145,6 +146,75 @@ export const deletePublicidad = async (id) => {
 export const incrementarVisualizacion = async (id) => {
   const response = await api.put(`/api/Publicidades/incrementar-visualizacion/${id}`);
   return response.data;
+};
+
+// ENDPOINTS OPTIMIZADOS (CARGA RÁPIDA)
+// Obtiene todas las publicidades SIN imágenes (carga rápida)
+export const getAllPublicidadesAdmin = async () => {
+  const response = await api.get('/api/Publicidades/listadoAdmin');
+  return response.data;
+};
+
+// Obtiene las publicidades de un usuario específico
+export const getPublicidadesByUsuario = async (usuarioId) => {
+  try {
+    const response = await api.get(`/api/Publicidades/BuscarIdUsuario/${usuarioId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error obteniendo publicidades del usuario ${usuarioId}:`, error);
+    throw error;
+  }
+};
+
+// Obtiene solo la imagen de una publicidad específica
+export const getPublicidadImagen = async (id) => {
+  try {
+    const response = await api.get(`/api/Publicidades/${id}/imagen`);
+    
+    if (response.data && response.data.imagen) {
+      // Convertir a formato data URL si no lo tiene
+      const imagen = response.data.imagen;
+      if (typeof imagen === 'string' && !imagen.startsWith('data:')) {
+        return `data:image/jpeg;base64,${imagen}`;
+      }
+      return imagen;
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error cargando imagen de publicidad ${id}:`, error);
+    return null;
+  }
+};
+
+// Obtiene la URL directa de la imagen
+export const getPublicidadImagenUrl = (id) => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://dondesalimos-api.azurewebsites.net';
+  return `${baseUrl}/api/Publicidades/${id}/imagen-raw`;
+};
+
+// Pre-carga un lote de imágenes en paralelo
+export const preloadPublicidadImagenes = async (ids, batchSize = 5) => {
+  const imagenesMap = new Map();
+  
+  // Procesar en lotes para no sobrecargar
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = ids.slice(i, i + batchSize);
+    
+    const results = await Promise.allSettled(
+      batch.map(async (id) => {
+        const imagen = await getPublicidadImagen(id);
+        return { id, imagen };
+      })
+    );
+    
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value.imagen) {
+        imagenesMap.set(result.value.id, result.value.imagen);
+      }
+    });
+  }
+  
+  return imagenesMap;
 };
 
 // APROBACIÓN/RECHAZO (Admin)
@@ -240,6 +310,7 @@ export const getPublicidadesStats = (publicidades) => {
 };
 
 export default {
+  // CRUD básico
   getAllPublicidades,
   getPublicidadById,
   searchPublicidadesByComercio,
@@ -247,12 +318,25 @@ export default {
   updatePublicidad,
   deletePublicidad,
   incrementarVisualizacion,
+  
+  // Optimizados (carga rápida)
+  getAllPublicidadesAdmin,
+  getPublicidadesByUsuario,
+  getPublicidadImagen,
+  getPublicidadImagenUrl,
+  preloadPublicidadImagenes,
+  
+  // Aprobación/Rechazo
   aprobarPublicidad,
   rechazarPublicidad,
+  
+  // Filtros
   filterPublicidadesActivas,
   filterPublicidadesPendientes,
   filterPublicidadesRechazadas,
   filterPublicidadesSinPagar,
+  
+  // Utilidades
   calcularFechaExpiracion,
   calcularDiasRestantes,
   formatTimeSpanToDays,

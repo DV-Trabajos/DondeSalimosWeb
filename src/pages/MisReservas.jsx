@@ -211,7 +211,7 @@ const MisReservas = () => {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      {/* Hero Section */}
+      {/* Hero Section con banner de estadísticas */}
       <div className="relative bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 overflow-hidden">
         {/* Decoraciones */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -230,10 +230,10 @@ const MisReservas = () => {
           </div>
 
           {/* Título */}
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
+          <h1 className="text-4xl font-bold text-white mb-2">
             Mis Reservas
           </h1>
-          <p className="text-purple-200 text-lg max-w-2xl">
+          <p className="text-purple-200/70">
             Administrá todas tus reservas en un solo lugar
           </p>
 
@@ -329,50 +329,48 @@ const MisReservas = () => {
         ) : (
           <>
             {/* Sub-tabs para Activas / Historial */}
-            <div className="bg-white rounded-2xl shadow-md border-2 border-gray-200 p-2">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setActiveSubTab('activas')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+            <div className="flex gap-2 bg-white rounded-xl p-1.5 shadow-sm border border-gray-100 w-fit">
+              <button
+                onClick={() => setActiveSubTab('activas')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
+                  activeSubTab === 'activas'
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <CalendarCheck className="w-5 h-5" />
+                Activas
+                {estadisticasActivas.total > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${
                     activeSubTab === 'activas'
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  <CalendarCheck className="w-5 h-5" />
-                  Reservas Activas
-                  {estadisticasActivas.total > 0 && (
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      activeSubTab === 'activas'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-purple-100 text-purple-700'
-                    }`}>
-                      {estadisticasActivas.total}
-                    </span>
-                  )}
-                </button>
-                
-                <button
-                  onClick={() => setActiveSubTab('historial')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                      ? 'bg-white/20 text-white'
+                      : 'bg-purple-100 text-purple-600'
+                  }`}>
+                    {estadisticasActivas.total}
+                  </span>
+                )}
+              </button>
+              
+              <button
+                onClick={() => setActiveSubTab('historial')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
+                  activeSubTab === 'historial'
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <History className="w-5 h-5" />
+                Historial
+                {estadisticasHistorial.total > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${
                     activeSubTab === 'historial'
-                      ? 'bg-gradient-to-r from-gray-700 to-gray-900 text-white shadow-lg'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  <History className="w-5 h-5" />
-                  Historial
-                  {estadisticasHistorial.total > 0 && (
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      activeSubTab === 'historial'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {estadisticasHistorial.total}
-                    </span>
-                  )}
-                </button>
-              </div>
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {estadisticasHistorial.total}
+                  </span>
+                )}
+              </button>
             </div>
 
             {/* Filtros */}

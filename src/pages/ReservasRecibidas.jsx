@@ -12,7 +12,7 @@ import ConfirmApproveModal from '../components/Reservations/ConfirmApproveModal'
 import RejectReservaModal from '../components/Reservations/RejectReservaModal';
 import { useNotification } from '../hooks/useNotification';
 import { 
-  getAllReservas,
+  getReservasRecibidasByUsuario,
   approveReserva,
   rejectReserva,
   filterReservasFuturas,
@@ -51,11 +51,13 @@ const ReservasRecibidas = () => {
     cargarDatos();
   }, [user]);
 
+  // Endpoint específico del usuario
   const cargarDatos = async () => {
     try {
       setLoading(true);
       setError(null);
 
+      // Primero cargar comercios del usuario
       const comerciosData = await getComerciosByUsuario(user.iD_Usuario);
       setComercios(comerciosData);
 
@@ -65,15 +67,14 @@ const ReservasRecibidas = () => {
         return;
       }
 
-      const allReservas = await getAllReservas();
+      // Obtener IDs de comercios para el fallback
       const comercioIds = comerciosData.map(c => c.iD_Comercio);
-      
-      const reservasRecibidas = allReservas.filter(
-        reserva => comercioIds.includes(reserva.iD_Comercio)
-      );
+
+      // getReservasRecibidasByUsuario() descarga solo las del usuario
+      const reservasData = await getReservasRecibidasByUsuario(user.iD_Usuario, comercioIds);
       
       // Ordenar por fecha de reserva: próximas primero (ascendente)
-      const reservasOrdenadas = reservasRecibidas.sort((a, b) => 
+      const reservasOrdenadas = reservasData.sort((a, b) => 
         new Date(a.fechaReserva) - new Date(b.fechaReserva)
       );
 
@@ -146,21 +147,21 @@ const ReservasRecibidas = () => {
         ${estadisticas.pendientes > 0 ? `
         <div class="w-px h-6 bg-white/20"></div>
         <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 ${activeSubTab === 'historial' ? 'text-orange-400' : 'text-amber-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
+            <polyline points="12,6 12,12 16,14"></polyline>
           </svg>
           <span class="text-white font-semibold">${estadisticas.pendientes}</span>
-          <span class="text-purple-300/70 text-sm">${activeSubTab === 'historial' ? 'sin resolver' : 'pendientes'}</span>
+          <span class="text-purple-300/70 text-sm">pendientes</span>
         </div>
         ` : ''}
         
         ${estadisticas.aprobadas > 0 ? `
         <div class="w-px h-6 bg-white/20"></div>
         <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M9 12l2 2 4-4"></path>
+          <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22,4 12,14.01 9,11.01"></polyline>
           </svg>
           <span class="text-white font-semibold">${estadisticas.aprobadas}</span>
           <span class="text-purple-300/70 text-sm">aprobadas</span>
@@ -257,7 +258,7 @@ const ReservasRecibidas = () => {
     }
   };
 
-  // Aplicar filtros
+  // Filtrado de reservas
   const reservasFiltradas = useMemo(() => {
     return reservasToShow.filter(reserva => {
       // Filtro por comercio
@@ -267,26 +268,20 @@ const ReservasRecibidas = () => {
 
       // Filtro por estado
       if (filtroEstado !== 'all') {
-        if (filtroEstado === 'pendiente' && (reserva.estado !== false || reserva.motivoRechazo)) {
-          return false;
-        }
-        if (filtroEstado === 'aprobada' && reserva.estado !== true) {
-          return false;
-        }
-        if (filtroEstado === 'rechazada' && (reserva.estado !== false || !reserva.motivoRechazo)) {
-          return false;
-        }
+        const isPending = reserva.estado === false && !reserva.motivoRechazo;
+        const isApproved = reserva.estado === true;
+        const isRejected = reserva.estado === false && !!reserva.motivoRechazo;
+
+        if (filtroEstado === 'pendiente' && !isPending) return false;
+        if (filtroEstado === 'aprobada' && !isApproved) return false;
+        if (filtroEstado === 'rechazada' && !isRejected) return false;
       }
 
-      // Filtro por fecha - Solo en vista activas
+      // Filtro por fecha (solo en activas)
       if (activeSubTab === 'activas' && filtroFecha !== 'all') {
         const fechaReserva = new Date(reserva.fechaReserva);
-        if (filtroFecha === 'hoy' && !isToday(fechaReserva)) {
-          return false;
-        }
-        if (filtroFecha === 'mañana' && !isTomorrow(fechaReserva)) {
-          return false;
-        }
+        if (filtroFecha === 'hoy' && !isToday(fechaReserva)) return false;
+        if (filtroFecha === 'manana' && !isTomorrow(fechaReserva)) return false;
       }
 
       // Filtro por búsqueda
@@ -358,135 +353,109 @@ const ReservasRecibidas = () => {
         {/* Estados de carga, error y sin comercios */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
             <p className="text-gray-600">Cargando reservas...</p>
           </div>
         ) : error ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <p className="text-red-800">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+            <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Error al cargar</h3>
+            <p className="text-red-600">{error}</p>
             <button 
               onClick={cargarDatos}
-              className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
             >
               Reintentar
             </button>
           </div>
         ) : comercios.length === 0 ? (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              No tienes comercios registrados
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Necesitas registrar un comercio para recibir reservas.
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+            <Store className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-amber-800 mb-2">Sin comercios</h3>
+            <p className="text-amber-600">
+              No tenés comercios registrados. Registrá uno para empezar a recibir reservas.
             </p>
           </div>
         ) : (
           <>
-            {/* Sub-tabs para Activas / Historial */}
-            <div className="bg-white rounded-2xl shadow-md border-2 border-gray-200 p-2">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setActiveSubTab('activas')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                    activeSubTab === 'activas'
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  <CalendarCheck className="w-5 h-5" />
-                  Reservas Activas
-                  {estadisticasActivas.total > 0 && (
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      activeSubTab === 'activas'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-purple-100 text-purple-700'
-                    }`}>
-                      {estadisticasActivas.total}
-                    </span>
-                  )}
-                </button>
-                
-                <button
-                  onClick={() => setActiveSubTab('historial')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                    activeSubTab === 'historial'
-                      ? 'bg-gradient-to-r from-gray-700 to-gray-900 text-white shadow-lg'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  <History className="w-5 h-5" />
-                  Historial
-                  {estadisticasHistorial.total > 0 && (
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      activeSubTab === 'historial'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {estadisticasHistorial.total}
-                    </span>
-                  )}
-                </button>
-              </div>
+            {/* Sub-tabs: Activas / Historial */}
+            <div className="flex gap-2 bg-white rounded-xl p-1.5 shadow-sm border border-gray-100 w-fit">
+              <button
+                onClick={() => setActiveSubTab('activas')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
+                  activeSubTab === 'activas'
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <CalendarCheck className="w-5 h-5" />
+                Activas
+                {reservasActivas.length > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${
+                    activeSubTab === 'activas' 
+                      ? 'bg-white/20 text-white' 
+                      : 'bg-purple-100 text-purple-600'
+                  }`}>
+                    {reservasActivas.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveSubTab('historial')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
+                  activeSubTab === 'historial'
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <History className="w-5 h-5" />
+                Historial
+                {reservasPasadas.length > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${
+                    activeSubTab === 'historial' 
+                      ? 'bg-white/20 text-white' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {reservasPasadas.length}
+                  </span>
+                )}
+              </button>
             </div>
 
-            {/* Banner si hay filtro de comercio */}
-            {filtroComercio !== 'all' && (
-              <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Calendar className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-purple-900">
-                        Filtrando por: {comercios.find(c => c.iD_Comercio === parseInt(filtroComercio))?.nombre}
-                      </p>
-                      <p className="text-sm text-purple-700">
-                        Puedes cambiar el filtro abajo para ver otros comercios
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setFiltroComercio('all')}
-                    className="text-purple-600 hover:text-purple-800 font-semibold text-sm"
-                  >
-                    Ver todas
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Filtros */}
-            <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-md">
-              <div className="flex items-center gap-2 mb-4">
-                <Filter className="w-5 h-5 text-gray-600" />
-                <h3 className="font-semibold text-gray-900">Filtros</h3>
-              </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <div className="flex flex-wrap gap-4 items-center">
+                {/* Búsqueda */}
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por usuario o comercio..."
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Filtro por comercio */}
-                {comercios.length > 1 && (
-                  <select
-                    value={filtroComercio}
-                    onChange={(e) => setFiltroComercio(e.target.value)}
-                    className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">Todos los comercios</option>
-                    {comercios.map(comercio => (
-                      <option key={comercio.iD_Comercio} value={comercio.iD_Comercio}>
-                        {comercio.nombre}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <select
+                  value={filtroComercio}
+                  onChange={(e) => setFiltroComercio(e.target.value)}
+                  className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                >
+                  <option value="all">Todos los comercios</option>
+                  {comercios.map(c => (
+                    <option key={c.iD_Comercio} value={c.iD_Comercio}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
 
                 {/* Filtro por estado */}
                 <select
                   value={filtroEstado}
                   onChange={(e) => setFiltroEstado(e.target.value)}
-                  className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                 >
                   <option value="all">Todos los estados</option>
                   <option value="pendiente">Pendientes</option>
@@ -494,55 +463,26 @@ const ReservasRecibidas = () => {
                   <option value="rechazada">Rechazadas</option>
                 </select>
 
-                {/* Filtro por fecha - Solo visible en "Activas" */}
+                {/* Filtro por fecha (solo en activas) */}
                 {activeSubTab === 'activas' && (
                   <select
                     value={filtroFecha}
                     onChange={(e) => setFiltroFecha(e.target.value)}
-                    className="px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                   >
                     <option value="all">Todas las fechas</option>
                     <option value="hoy">Hoy</option>
-                    <option value="mañana">Mañana</option>
+                    <option value="manana">Mañana</option>
                   </select>
                 )}
-
-                {/* Búsqueda */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar cliente..."
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
               </div>
-
-              {/* Botón de limpiar filtros */}
-              {(busqueda || filtroEstado !== 'all' || filtroFecha !== 'all' || filtroComercio !== 'all') && (
-                <button
-                  onClick={() => {
-                    setBusqueda('');
-                    setFiltroEstado('all');
-                    setFiltroFecha('all');
-                    setFiltroComercio('all');
-                  }}
-                  className="mt-3 text-sm text-purple-600 hover:text-purple-800 font-medium"
-                >
-                  Limpiar filtros
-                </button>
-              )}
             </div>
 
-            {/* Lista de reservas */}
+            {/* Lista de reservas o estado vacío */}
             {reservasFiltradas.length === 0 ? (
-              <div className="bg-white rounded-2xl border-2 border-gray-200 p-12 text-center shadow-md">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="w-8 h-8 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">
                   {activeSubTab === 'activas' 
                     ? 'No hay reservas activas' 
                     : 'No hay reservas en el historial'}

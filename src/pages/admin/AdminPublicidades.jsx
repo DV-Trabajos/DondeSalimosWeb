@@ -1,6 +1,6 @@
-// AdminPublicidades.jsx - Gestión completa de publicidades CRUD completo
+// AdminPublicidades.jsx - Gestión de publicidades
 import { useState, useEffect, useMemo } from 'react';
-import { Megaphone, CheckCircle, XCircle, DollarSign, Clock, Plus, Edit, Trash2 } from 'lucide-react';
+import { Megaphone, CheckCircle, XCircle, DollarSign, Clock, Plus, Edit, Trash2, ImageOff } from 'lucide-react';
 import AdminLayout from '../../components/Admin/AdminLayout';
 import DataTable from '../../components/Admin/DataTable';
 import { TableFilters, ActiveFilters } from '../../components/Admin/TableFilters';
@@ -9,18 +9,21 @@ import PublicidadDetailModal from '../../components/Admin/PublicidadDetailModal'
 import CreatePublicidadModal from '../../components/Admin/CreatePublicidadModal';
 import DeletePublicidadModal from '../../components/Publicidad/DeletePublicidadModal';
 import { ConfirmationModal, NotificationModal, InputModal } from '../../components/Modals';
+import LazyImage from '../../components/Shared/LazyImage';
 import { 
-  getAllPublicidades, 
   aprobarPublicidad, 
   rechazarPublicidad 
 } from '../../services/adminService';
 import { 
   createPublicidad,
   updatePublicidad,
-  deletePublicidad
+  deletePublicidad,
+  getAllPublicidadesAdmin,
+  getPublicidadImagen,
+  getPublicidadById,
 } from '../../services/publicidadesService';
 import { getAllComercios } from '../../services/comerciosService';
-import { convertBase64ToImage, formatTimeSpanToDays } from '../../utils/formatters';
+import { formatTimeSpanToDays } from '../../utils/formatters';
 
 const AdminPublicidades = () => {
   const [publicidades, setPublicidades] = useState([]);
@@ -38,13 +41,15 @@ const AdminPublicidades = () => {
   // Estados para modales
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showNotification, setShowNotification] = useState(false);
-  const [showInputModal, setShowInputModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [modalConfig, setModalConfig] = useState({});
+  const [isEditMode, setIsEditMode] = useState(false);
 
+  // Estados para notificaciones y confirmaciones
+  const [notification, setNotification] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ show: false });
+  const [inputModal, setInputModal] = useState({ show: false });
+
+  // CARGA INICIAL
   useEffect(() => {
     loadData();
   }, []);
@@ -52,45 +57,38 @@ const AdminPublicidades = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [publicidadesData, comerciosData] = await Promise.all([
-        getAllPublicidades(),
+      const [pubData, comData] = await Promise.all([
+        getAllPublicidadesAdmin(), 
         getAllComercios()
       ]);
-      setPublicidades(publicidadesData);
-      setComercios(comerciosData);
+      setPublicidades(pubData || []);
+      setComercios(comData || []);
     } catch (error) {
-      notify('Error al cargar datos', 'error');
+      console.error('Error cargando datos:', error);
+      showNotification('Error al cargar los datos', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper para notificaciones
-  const notify = (message, type = 'success') => {
-    setModalConfig({
-      message,
-      type,
-      onClose: () => setShowNotification(false)
-    });
-    setShowNotification(true);
+  // NOTIFICACIONES
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
   };
 
-  // APLICAR FILTROS
+  // FILTROS
   const filteredPublicidades = useMemo(() => {
     return publicidades.filter(publicidad => {
-      // Filtro por búsqueda (comercio o descripción)
+      // Filtro por búsqueda
       if (filters.busqueda) {
-        const searchTerm = filters.busqueda.toLowerCase();
-        const matchesComercio = publicidad.comercio?.nombre?.toLowerCase().includes(searchTerm);
-        const matchesDescripcion = publicidad.descripcion?.toLowerCase().includes(searchTerm);
-        
-        if (!matchesComercio && !matchesDescripcion) {
-          return false;
-        }
+        const searchLower = filters.busqueda.toLowerCase();
+        const matchComercio = publicidad.comercio?.nombre?.toLowerCase().includes(searchLower);
+        const matchDescripcion = publicidad.descripcion?.toLowerCase().includes(searchLower);
+        if (!matchComercio && !matchDescripcion) return false;
       }
 
       // Filtro por estado
-      if (filters.estado !== '') {
+      if (filters.estado) {
         if (filters.estado === 'aprobada' && publicidad.estado !== true) return false;
         if (filters.estado === 'rechazada' && (!publicidad.motivoRechazo || publicidad.estado === true)) return false;
         if (filters.estado === 'pendiente' && (publicidad.estado === true || publicidad.motivoRechazo)) return false;
@@ -139,18 +137,11 @@ const AdminPublicidades = () => {
   ];
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setFilters(prev => ({ ...prev, [key]: value }));
   };
 
   const handleClearFilters = () => {
-    setFilters({
-      busqueda: '',
-      estado: '',
-      pago: ''
-    });
+    setFilters({ busqueda: '', estado: '', pago: '' });
   };
 
   // CONFIGURACIÓN DE COLUMNAS
@@ -161,19 +152,22 @@ const AdminPublicidades = () => {
       accessor: () => '',
       sortable: false,
       render: (row) => (
-        <div className="w-20 h-20">
-          {row.imagen ? (
-            <img 
-              src={convertBase64ToImage(row.imagen)} 
-              alt="Publicidad"
-              className="w-full h-full object-cover rounded-lg"
-            />
-          ) : (
-            <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
-              <Megaphone className="w-8 h-8 text-gray-400" />
+        <LazyImage
+          className="w-20 h-20 rounded-lg overflow-hidden"
+          loadImage={() => getPublicidadImagen(row.iD_Publicidad)}
+          alt={`Publicidad ${row.comercio?.nombre || ''}`}
+          eager={false}
+          placeholder={
+            <div className="w-full h-full bg-gradient-to-br from-purple-100 to-violet-100 animate-pulse rounded-lg flex items-center justify-center">
+              <Megaphone className="w-6 h-6 text-purple-300" />
             </div>
-          )}
-        </div>
+          }
+          errorComponent={
+            <div className="w-full h-full bg-gray-100 rounded-lg flex flex-col items-center justify-center">
+              <ImageOff className="w-6 h-6 text-gray-400" />
+            </div>
+          }
+        />
       )
     },
     {
@@ -190,42 +184,25 @@ const AdminPublicidades = () => {
             {row.descripcion?.length > 50 ? '...' : ''}
           </p>
         </div>
-      ),
-      width: '20%'
-    },
-    {
-      key: 'descripcion',
-      header: 'Descripción',
-      accessor: (row) => row.descripcion,
-      render: (row) => (
-        <p className="text-sm text-gray-600 max-w-xs">
-          {row.descripcion}
-        </p>
-      ),
-      width: '25%'
+      )
     },
     {
       key: 'duracion',
       header: 'Duración',
       accessor: (row) => formatTimeSpanToDays(row.tiempo),
-      render: (row) => {
-        const dias = formatTimeSpanToDays(row.tiempo);
-        return (
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-900">
-              {dias} {dias === 1 ? 'día' : 'días'}
-            </span>
-          </div>
-        );
-      }
+      render: (row) => (
+        <div className="flex items-center gap-1 text-gray-600">
+          <Clock className="w-4 h-4" />
+          <span>{formatTimeSpanToDays(row.tiempo)} días</span>
+        </div>
+      )
     },
     {
       key: 'visualizaciones',
       header: 'Vistas',
       accessor: (row) => row.visualizaciones || 0,
       render: (row) => (
-        <span className="text-sm font-semibold text-gray-900">
+        <span className="font-medium text-gray-700">
           {row.visualizaciones || 0}
         </span>
       )
@@ -235,14 +212,17 @@ const AdminPublicidades = () => {
       header: 'Pago',
       accessor: (row) => row.pago,
       render: (row) => (
-        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-          row.pago 
-            ? 'bg-green-50 text-green-700' 
-            : 'bg-gray-100 text-gray-600'
-        }`}>
-          <DollarSign className="w-3 h-3" />
-          {row.pago ? 'Pagado' : 'Pendiente'}
-        </span>
+        row.pago ? (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+            <DollarSign className="w-3.5 h-3.5" />
+            Pagado
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+            <Clock className="w-3.5 h-3.5" />
+            Pendiente
+          </span>
+        )
       )
     },
     {
@@ -250,25 +230,24 @@ const AdminPublicidades = () => {
       header: 'Estado',
       accessor: (row) => row.estado,
       render: (row) => {
-        if (row.estado === true) {
+        if (row.estado) {
           return (
-            <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
-              <CheckCircle className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+              <CheckCircle className="w-3.5 h-3.5" />
               Aprobada
             </span>
           );
-        }
-        if (row.motivoRechazo) {
+        } else if (row.motivoRechazo) {
           return (
-            <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold">
-              <XCircle className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+              <XCircle className="w-3.5 h-3.5" />
               Rechazada
             </span>
           );
         }
         return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 bg-orange-50 text-orange-700 rounded-full text-xs font-semibold">
-            <Clock className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+            <Clock className="w-3.5 h-3.5" />
             Pendiente
           </span>
         );
@@ -280,51 +259,41 @@ const AdminPublicidades = () => {
       accessor: () => '',
       sortable: false,
       render: (row) => (
-        <div className="flex items-center justify-center gap-2">
-          {/* Botones de Aprobar/Rechazar solo para pendientes */}
+        <div className="flex items-center gap-2">
+          {/* Aprobar (si está pendiente) */}
           {!row.estado && !row.motivoRechazo && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAprobar(row);
-                }}
-                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                title="Aprobar"
-              >
-                <CheckCircle className="w-4 h-4" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRechazar(row);
-                }}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Rechazar"
-              >
-                <XCircle className="w-4 h-4" />
-              </button>
-            </>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleAprobar(row); }}
+              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+              title="Aprobar"
+            >
+              <CheckCircle className="w-4 h-4" />
+            </button>
           )}
           
-          {/* Botón Editar */}
+          {/* Rechazar (si está pendiente) */}
+          {!row.estado && !row.motivoRechazo && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleRechazar(row); }}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Rechazar"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          )}
+          
+          {/* Editar */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditar(row);
-            }}
+            onClick={(e) => { e.stopPropagation(); handleEditar(row); }}
             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             title="Editar"
           >
             <Edit className="w-4 h-4" />
           </button>
-
-          {/* Botón Eliminar */}
+          
+          {/* Eliminar */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEliminar(row);
-            }}
+            onClick={(e) => { e.stopPropagation(); handleEliminar(row); }}
             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Eliminar"
           >
@@ -335,67 +304,63 @@ const AdminPublicidades = () => {
     }
   ];
 
-  // HANDLERS
+  // ACCIONES
   const handleAprobar = (publicidad) => {
-    setSelectedPublicidad(publicidad);
-    setModalConfig({
+    setConfirmModal({
+      show: true,
       title: 'Aprobar Publicidad',
-      message: `¿Aprobar la publicidad de "${publicidad.comercio?.nombre}"?`,
-      detail: 'La publicidad será visible en la aplicación.',
-      confirmText: 'Sí, aprobar',
+      message: `¿Estás seguro de aprobar la publicidad de "${publicidad.comercio?.nombre}"?`,
+      confirmText: 'Aprobar',
+      confirmStyle: 'success',
       onConfirm: async () => {
         try {
-          await aprobarPublicidad(publicidad.iD_Publicidad, publicidad);
-          notify('Publicidad aprobada correctamente', 'success');
-          setShowConfirmModal(false);
-          setSelectedPublicidad(null);
+          await aprobarPublicidad(publicidad.iD_Publicidad);
+          showNotification('Publicidad aprobada correctamente');
           loadData();
         } catch (error) {
-          notify('Error al aprobar publicidad', 'error');
+          showNotification('Error al aprobar publicidad', 'error');
         }
-      },
-      onCancel: () => {
-        setShowConfirmModal(false);
-        setSelectedPublicidad(null);
+        setConfirmModal({ show: false });
       }
     });
-    setShowConfirmModal(true);
   };
 
   const handleRechazar = (publicidad) => {
-    setSelectedPublicidad(publicidad);
-    setModalConfig({
-      title: 'Motivo del Rechazo',
-      message: 'Ingresa el motivo por el cual se rechaza esta publicidad:',
-      placeholder: 'Ej: Contenido inapropiado, imagen de baja calidad, etc.',
+    setInputModal({
+      show: true,
+      title: 'Rechazar Publicidad',
+      message: 'Ingresa el motivo del rechazo:',
+      placeholder: 'Motivo del rechazo...',
       confirmText: 'Rechazar',
       onConfirm: async (motivo) => {
-        if (!motivo || motivo.trim().length < 10) {
-          notify('El motivo debe tener al menos 10 caracteres', 'error');
+        if (!motivo.trim()) {
+          showNotification('Debes ingresar un motivo', 'error');
           return;
         }
-
         try {
-          await rechazarPublicidad(publicidad.iD_Publicidad, publicidad, motivo.trim());
-          notify('Publicidad rechazada correctamente', 'success');
-          setShowInputModal(false);
-          setSelectedPublicidad(null);
+          await rechazarPublicidad(publicidad.iD_Publicidad, publicidad, motivo);
+          showNotification('Publicidad rechazada correctamente');
           loadData();
         } catch (error) {
-          notify('Error al rechazar publicidad', 'error');
+          showNotification('Error al rechazar publicidad', 'error');
         }
-      },
-      onCancel: () => {
-        setShowInputModal(false);
-        setSelectedPublicidad(null);
+        setInputModal({ show: false });
       }
     });
-    setShowInputModal(true);
   };
 
-  const handleEditar = (publicidad) => {
-    setSelectedPublicidad(publicidad);
-    setShowCreateModal(true);
+  // Para editar, necesitamos cargar la publicidad completa con imagen
+  const handleEditar = async (publicidad) => {
+    try {
+      // Cargar publicidad completa con imagen
+      const publicidadCompleta = await getPublicidadById(publicidad.iD_Publicidad);
+      setSelectedPublicidad(publicidadCompleta);
+      setIsEditMode(true);
+      setShowCreateModal(true);
+    } catch (error) {
+      console.error('Error cargando publicidad:', error);
+      showNotification('Error al cargar la publicidad', 'error');
+    }
   };
 
   const handleEliminar = (publicidad) => {
@@ -403,51 +368,51 @@ const AdminPublicidades = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDeletePublicidad = async () => {
-    if (!selectedPublicidad) return;
-    
+  const handleConfirmDelete = async () => {
     try {
-      setIsDeleting(true);
       await deletePublicidad(selectedPublicidad.iD_Publicidad);
-      notify('Publicidad eliminada correctamente', 'success');
+      showNotification('Publicidad eliminada correctamente');
       setShowDeleteModal(false);
       setSelectedPublicidad(null);
       loadData();
     } catch (error) {
-      notify('Error al eliminar publicidad', 'error');
-    } finally {
-      setIsDeleting(false);
+      showNotification('Error al eliminar publicidad', 'error');
     }
   };
 
   const handleNuevaPublicidad = () => {
     setSelectedPublicidad(null);
+    setIsEditMode(false);
     setShowCreateModal(true);
   };
 
-  const handleSubmitPublicidad = async (data) => {
+  const handleSavePublicidad = async (publicidadData) => {
     try {
-      if (selectedPublicidad) {
-        // Editar publicidad existente
-        await updatePublicidad(selectedPublicidad.iD_Publicidad, data);
-        notify('Publicidad actualizada correctamente', 'success');
+      if (isEditMode && selectedPublicidad) {
+        await updatePublicidad(selectedPublicidad.iD_Publicidad, publicidadData);
+        showNotification('Publicidad actualizada correctamente');
       } else {
-        // Crear nueva publicidad
-        await createPublicidad(data);
-        notify('Publicidad creada correctamente', 'success');
+        await createPublicidad(publicidadData);
+        showNotification('Publicidad creada correctamente');
       }
-      
       setShowCreateModal(false);
-      setSelectedPublicidad(null);
       loadData();
     } catch (error) {
-      notify(`Error al ${selectedPublicidad ? 'actualizar' : 'crear'} publicidad`, 'error');
+      showNotification(`Error al ${isEditMode ? 'actualizar' : 'crear'} publicidad`, 'error');
     }
   };
 
-  const handleVerDetalle = (publicidad) => {
-    setSelectedPublicidad(publicidad);
-    setShowDetailModal(true);
+  // Para ver detalle, también necesitamos cargar la imagen
+  const handleVerDetalle = async (publicidad) => {
+    try {
+      const publicidadCompleta = await getPublicidadById(publicidad.iD_Publicidad);
+      setSelectedPublicidad(publicidadCompleta);
+      setShowDetailModal(true);
+    } catch (error) {
+      // Si falla, mostrar sin imagen
+      setSelectedPublicidad(publicidad);
+      setShowDetailModal(true);
+    }
   };
 
   // ACCIONES DEL HEADER
@@ -468,6 +433,7 @@ const AdminPublicidades = () => {
     </div>
   );
 
+  // LOADING
   if (loading) {
     return (
       <AdminLayout title="Gestión de Publicidades" subtitle="Cargando...">
@@ -484,7 +450,7 @@ const AdminPublicidades = () => {
   return (
     <AdminLayout
       title="Gestión de Publicidades"
-      subtitle={`${filteredPublicidades.length} publicidad${filteredPublicidades.length !== 1 ? 'es' : ''} ${filters.busqueda || filters.estado || filters.pago ? 'filtrada' : 'encontrada'}${filteredPublicidades.length !== 1 ? 's' : ''} • ${pendientes} pendientes • ${aprobadas} aprobadas`}
+      subtitle={`${filteredPublicidades.length} publicidad${filteredPublicidades.length !== 1 ? 'es' : ''} encontrada${filteredPublicidades.length !== 1 ? 's' : ''} • ${pendientes} pendientes • ${aprobadas} aprobadas`}
       actions={headerActions}
     >
       {/* Filtros */}
@@ -502,9 +468,7 @@ const AdminPublicidades = () => {
         <div className="mb-4">
           <ActiveFilters
             filters={filterConfig}
-            onRemove={(key) => {
-              setFilters(prev => ({ ...prev, [key]: '' }));
-            }}
+            onRemove={(key) => setFilters(prev => ({ ...prev, [key]: '' }))}
             onClearAll={handleClearFilters}
           />
         </div>
@@ -522,74 +486,85 @@ const AdminPublicidades = () => {
         emptyMessage="No se encontraron publicidades con los filtros aplicados"
       />
 
+      {/* MODALES */}
+      
       {/* Modal de Detalle */}
-      <PublicidadDetailModal
-        publicidad={selectedPublicidad}
-        isOpen={showDetailModal}
-        onClose={() => {
-          setShowDetailModal(false);
-          setSelectedPublicidad(null);
-        }}
-      />
+      {showDetailModal && selectedPublicidad && (
+        <PublicidadDetailModal
+          publicidad={selectedPublicidad}
+          isOpen={showDetailModal}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedPublicidad(null);
+          }}
+          onAprobar={handleAprobar}
+          onRechazar={handleRechazar}
+          onEdit={handleEditar}
+        />
+      )}
 
       {/* Modal de Crear/Editar */}
-      <CreatePublicidadModal
-        isOpen={showCreateModal}
-        onClose={() => {
-          setShowCreateModal(false);
-          setSelectedPublicidad(null);
-        }}
-        onSubmit={handleSubmitPublicidad}
-        comercios={comercios}
-        publicidad={selectedPublicidad}
-      />
+      {showCreateModal && (
+        <CreatePublicidadModal
+          isOpen={showCreateModal}
+          onClose={() => {
+            setShowCreateModal(false);
+            setSelectedPublicidad(null);
+            setIsEditMode(false);
+          }}
+          onSave={handleSavePublicidad}
+          publicidad={selectedPublicidad}
+          comercios={comercios}
+          isEditMode={isEditMode}
+        />
+      )}
 
       {/* Modal de Eliminar */}
-      <DeletePublicidadModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setSelectedPublicidad(null);
-        }}
-        onConfirm={confirmDeletePublicidad}
-        publicidad={selectedPublicidad}
-        nombreComercio={selectedPublicidad?.comercio?.nombre}
-        isDeleting={isDeleting}
-      />
+      {showDeleteModal && selectedPublicidad && (
+        <DeletePublicidadModal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedPublicidad(null);
+          }}
+          onConfirm={handleConfirmDelete}
+          publicidad={selectedPublicidad}
+        />
+      )}
 
       {/* Modal de Confirmación */}
-      {showConfirmModal && (
+      {confirmModal.show && (
         <ConfirmationModal
-          isOpen={showConfirmModal}
-          onClose={modalConfig.onCancel}
-          onConfirm={modalConfig.onConfirm}
-          title={modalConfig.title}
-          message={modalConfig.message}
-          detail={modalConfig.detail}
-          confirmText={modalConfig.confirmText}
+          isOpen={confirmModal.show}
+          onClose={() => setConfirmModal({ show: false })}
+          onConfirm={confirmModal.onConfirm}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmText={confirmModal.confirmText}
+          confirmStyle={confirmModal.confirmStyle}
         />
       )}
 
-      {/* Modal de Input (para motivo de rechazo) */}
-      {showInputModal && (
+      {/* Modal de Input */}
+      {inputModal.show && (
         <InputModal
-          isOpen={showInputModal}
-          onClose={modalConfig.onCancel}
-          onConfirm={modalConfig.onConfirm}
-          title={modalConfig.title}
-          message={modalConfig.message}
-          placeholder={modalConfig.placeholder}
-          confirmText={modalConfig.confirmText}
+          isOpen={inputModal.show}
+          onClose={() => setInputModal({ show: false })}
+          onConfirm={inputModal.onConfirm}
+          title={inputModal.title}
+          message={inputModal.message}
+          placeholder={inputModal.placeholder}
+          confirmText={inputModal.confirmText}
         />
       )}
 
-      {/* Modal de Notificación */}
-      {showNotification && (
+      {/* Notificación */}
+      {notification && (
         <NotificationModal
-          isOpen={showNotification}
-          onClose={modalConfig.onClose}
-          message={modalConfig.message}
-          type={modalConfig.type}
+          isOpen={!!notification}
+          onClose={() => setNotification(null)}
+          message={notification.message}
+          type={notification.type}
         />
       )}
     </AdminLayout>
