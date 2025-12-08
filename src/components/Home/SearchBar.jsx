@@ -1,6 +1,6 @@
 // SearchBar.jsx - Barra de búsqueda con filtros
 import { useState, useEffect } from 'react';
-import { Search, Filter, X, Music, ChevronDown, ChevronUp, Loader } from 'lucide-react';
+import { Search, Filter, X, Music, ChevronDown, ChevronUp, Loader, AlertCircle } from 'lucide-react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { GENEROS_MUSICALES, GENEROS_POR_CATEGORIA } from '../../utils/constants';
 import { getAllTiposComercio } from '../../services/tiposComercioService';
@@ -243,6 +243,16 @@ const SearchBar = ({
               {showGenres ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
 
+            {/* Mensaje informativo cuando hay géneros seleccionados */}
+            {selectedGenres.length > 0 && (
+              <div className="mt-2 flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700">
+                  <strong>Nota:</strong> Al filtrar por género musical, solo se muestran comercios locales registrados en la plataforma (lugares de Google no incluyen esta información).
+                </p>
+              </div>
+            )}
+
             {showGenres && (
               <div className="mt-4 space-y-4">
                 {Object.entries(GENEROS_POR_CATEGORIA).map(([categoria, generosIds]) => (
@@ -251,7 +261,6 @@ const SearchBar = ({
                       {categoria}
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {/* generosIds es un array de strings (IDs) */}
                       {generosIds.map((generoId) => {
                         const generoObj = GENEROS_MUSICALES.find(g => g.id === generoId);
                         return (

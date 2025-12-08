@@ -219,10 +219,12 @@ const Home = () => {
   const applyFilters = () => {
     let result = [...places];
 
+    // Filtro por tipo de comercio
     if (filters.type !== 'all') {
       result = filterComerciosByType(result, parseInt(filters.type));
     }
 
+    // Filtro por búsqueda de texto
     if (filters.searchTerm?.trim()) {
       const search = filters.searchTerm.toLowerCase();
       result = result.filter(place =>
@@ -232,10 +234,16 @@ const Home = () => {
       );
     }
 
+    // FILTRO DE GÉNERO MUSICAL
     if (filters.genres && filters.genres.length > 0) {
       result = result.filter(place => {
-        if (!place.isLocal) return true;
+        // Google Places NO tienen campo generoMusical
+        if (!place.isLocal) return false; // Excluir Google Places del filtro
+        
+        // Si no tiene género musical, excluir
         if (!place.generoMusical) return false;
+        
+        // Verificar si algún género seleccionado coincide
         const generoComercio = place.generoMusical.toLowerCase();
         return filters.genres.some(genre => 
           generoComercio.includes(genre.replace('_', ' '))
@@ -243,6 +251,7 @@ const Home = () => {
       });
     }
 
+    // Ordenamiento
     if (filters.sortBy === 'distance' && latitude && longitude) {
       result = sortComerciosByDistance(result, latitude, longitude);
     } else if (filters.sortBy === 'rating') {
