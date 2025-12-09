@@ -1,6 +1,6 @@
 // AdminComercios.jsx - Gestión de comercios con carga optimizada
 import { useState, useEffect, useMemo } from 'react';
-import { Store, CheckCircle, XCircle, Plus, Edit, Trash2, Clock, ImageOff } from 'lucide-react';
+import { Store, CheckCircle, XCircle, Plus, Edit, Trash2, Clock } from 'lucide-react';
 import AdminLayout from '../../components/Admin/AdminLayout';
 import DataTable from '../../components/Admin/DataTable';
 import { TableFilters, ActiveFilters } from '../../components/Admin/TableFilters';
@@ -9,7 +9,6 @@ import ComercioDetailModal from '../../components/Admin/ComercioDetailModal';
 import CreateComercioModal from '../../components/Admin/CreateComercioModal';
 import ConfirmActionModal from '../../components/Admin/ConfirmActionModal';
 import DeleteConfirmModal from '../../components/Admin/DeleteConfirmModal';
-import LazyImage from '../../components/Shared/LazyImage';
 import { useNotification } from '../../hooks/useNotification';
 import { 
   aprobarComercio, 
@@ -21,15 +20,19 @@ import {
   updateComercio, 
   deleteComercio,
   getAllComerciosAdmin,
-  getComercioImagen,
   getComercioById,
 } from '../../services/comerciosService';
 import { getAllTiposComercio, buildTiposComercioMap } from '../../services/tiposComercioService';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dondesalimos-api.azurewebsites.net';
 
 const AdminComercios = () => {
   const [comercios, setComercios] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Estado para versiones de imágenes (cache busting)
+  const [imageVersions, setImageVersions] = useState({});
   
   // Estado para tipos de comercio dinámicos
   const [tiposComercio, setTiposComercio] = useState([]);
@@ -55,6 +58,7 @@ const AdminComercios = () => {
   // Estado para modal de editar
   const [showEditModal, setShowEditModal] = useState(false);
   const [comercioToEdit, setComercioToEdit] = useState(null);
+  const [loadingEdit, setLoadingEdit] = useState(false);
 
   // Estado para confirmación de acciones (aprobar/rechazar)
   const [showActionModal, setShowActionModal] = useState(false);
@@ -66,7 +70,37 @@ const AdminComercios = () => {
   const [comercioToDelete, setComercioToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // CARGA INICIAL - Endpoint optimizado (sin fotos)
+  // HELPERS PARA ACTUALIZACIÓN LOCAL
+  const updateComercioLocal = (comercioId, updates) => {
+    setComercios(prev => prev.map(c => 
+      c.iD_Comercio === comercioId ? { ...c, ...updates } : c
+    ));
+  };
+
+  const removeComercioLocal = (comercioId) => {
+    setComercios(prev => prev.filter(c => c.iD_Comercio !== comercioId));
+  };
+
+  const addComercioLocal = (comercio) => {
+    setComercios(prev => [comercio, ...prev]);
+  };
+
+  // Invalidar cache de imagen para un comercio específico
+  const invalidateImageCache = (comercioId) => {
+    setImageVersions(prev => ({
+      ...prev,
+      [comercioId]: Date.now()
+    }));
+  };
+
+  // Obtener URL de imagen con cache busting
+  const getImageUrl = (comercioId) => {
+    const version = imageVersions[comercioId];
+    const baseUrl = `${API_BASE_URL}/api/Comercios/${comercioId}/imagen-raw`;
+    return version ? `${baseUrl}?v=${version}` : baseUrl;
+  };
+
+  // CARGA INICIAL
   useEffect(() => {
     loadData();
   }, []);
@@ -165,7 +199,10 @@ const AdminComercios = () => {
     setFilters({ busqueda: '', estado: '', tipo: '' });
   };
 
-  // CONFIGURACIÓN DE COLUMNAS
+  // HELPER: Determinar si está pendiente
+  const isPendiente = (row) => !row.estado && !row.motivoRechazo;
+
+  // CONFIGURACIÓN DE COLUMNAS - Imagen con URL directa y cache busting
   const columns = [
     {
       key: 'nombre',
@@ -173,22 +210,24 @@ const AdminComercios = () => {
       accessor: (row) => row.nombre,
       render: (row) => (
         <div className="flex items-center gap-3">
-          <LazyImage
-            className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0"
-            loadImage={() => getComercioImagen(row.iD_Comercio)}
-            alt={row.nombre}
-            eager={false}
-            placeholder={
-              <div className="w-full h-full bg-gradient-to-br from-purple-100 to-violet-100 animate-pulse rounded-lg flex items-center justify-center">
-                <Store className="w-5 h-5 text-purple-300" />
-              </div>
-            }
-            errorComponent={
-              <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
-                <Store className="w-5 h-5 text-gray-400" />
-              </div>
-            }
-          />
+          {/* Imagen con URL directa + cache busting */}
+          <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gradient-to-br from-purple-100 to-violet-100 relative">
+            <img
+              src={getImageUrl(row.iD_Comercio)}
+              alt={row.nombre}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                if (e.target.nextSibling) {
+                  e.target.nextSibling.style.display = 'flex';
+                }
+              }}
+            />
+            <div className="absolute inset-0 bg-gray-100 items-center justify-center hidden">
+              <Store className="w-5 h-5 text-gray-400" />
+            </div>
+          </div>
           <div>
             <p className="font-semibold text-gray-900">{row.nombre}</p>
             <p className="text-xs text-gray-500">{row.direccion}</p>
@@ -224,25 +263,30 @@ const AdminComercios = () => {
     {
       key: 'estado',
       header: 'Estado',
-      accessor: (row) => row.estado,
+      accessor: (row) => {
+        if (row.estado === true) return 'Aprobado';
+        if (row.motivoRechazo) return 'Rechazado';
+        return 'Pendiente';
+      },
       render: (row) => {
-        if (row.estado) {
+        if (row.estado === true) {
           return (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
               <CheckCircle className="w-3.5 h-3.5" />
               Aprobado
             </span>
           );
-        } else if (row.motivoRechazo) {
+        }
+        if (row.motivoRechazo) {
           return (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
               <XCircle className="w-3.5 h-3.5" />
               Rechazado
             </span>
           );
         }
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
             <Clock className="w-3.5 h-3.5" />
             Pendiente
           </span>
@@ -255,20 +299,20 @@ const AdminComercios = () => {
       accessor: () => '',
       sortable: false,
       render: (row) => (
-        <div className="flex items-center gap-2">
-          {/* Aprobar (si está pendiente) */}
-          {!row.estado && !row.motivoRechazo && (
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {/* Aprobar - solo si PENDIENTE */}
+          {isPendiente(row) && (
             <button
               onClick={(e) => { e.stopPropagation(); handleAprobar(row); }}
-              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
               title="Aprobar"
             >
               <CheckCircle className="w-4 h-4" />
             </button>
           )}
           
-          {/* Rechazar (si está pendiente) */}
-          {!row.estado && !row.motivoRechazo && (
+          {/* Rechazar - solo si PENDIENTE */}
+          {isPendiente(row) && (
             <button
               onClick={(e) => { e.stopPropagation(); handleRechazar(row); }}
               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -319,13 +363,21 @@ const AdminComercios = () => {
     try {
       if (actionType === 'aprobar') {
         await aprobarComercio(comercioToAction.iD_Comercio, comercioToAction);
+        // Actualizar local en vez de recargar todo
+        updateComercioLocal(comercioToAction.iD_Comercio, { 
+          estado: true, 
+          motivoRechazo: null 
+        });
         success(`Comercio "${comercioToAction.nombre}" aprobado`);
       } else if (actionType === 'rechazar') {
         await rechazarComercio(comercioToAction.iD_Comercio, comercioToAction, motivo);
+        updateComercioLocal(comercioToAction.iD_Comercio, { 
+          estado: false, 
+          motivoRechazo: motivo 
+        });
         success(`Comercio "${comercioToAction.nombre}" rechazado`);
       }
       
-      loadData();
       setShowActionModal(false);
       setComercioToAction(null);
       setActionType(null);
@@ -334,8 +386,26 @@ const AdminComercios = () => {
     }
   };
 
-  // Para editar, necesitamos cargar el comercio completo con foto
+  // Ver detalle - Abrir modal inmediato, cargar foto en background
+  const handleVerDetalle = async (comercio) => {
+    // Abrir modal inmediatamente con datos básicos
+    setSelectedComercio(comercio);
+    setShowDetailModal(true);
+    
+    // Cargar comercio completo (con foto) en background
+    try {
+      const comercioCompleto = await getComercioById(comercio.iD_Comercio);
+      // Actualizar el comercio seleccionado cuando llegue la foto
+      setSelectedComercio(comercioCompleto);
+    } catch (err) {
+      // Si falla, mantener datos básicos (sin foto)
+      console.error('Error cargando detalle:', err);
+    }
+  };
+
+  // Editar - Cargar comercio completo antes de abrir
   const handleEditar = async (comercio) => {
+    setLoadingEdit(true);
     try {
       const comercioCompleto = await getComercioById(comercio.iD_Comercio);
       setComercioToEdit(comercioCompleto);
@@ -343,6 +413,8 @@ const AdminComercios = () => {
     } catch (err) {
       console.error('Error cargando comercio:', err);
       error('Error al cargar el comercio');
+    } finally {
+      setLoadingEdit(false);
     }
   };
 
@@ -353,10 +425,18 @@ const AdminComercios = () => {
 
   const handleCreateComercio = async (comercioData) => {
     try {
-      await createComercio(comercioData);
+      const nuevoComercio = await createComercio(comercioData);
+      // Si la API devuelve el comercio creado, agregarlo local
+      if (nuevoComercio?.iD_Comercio) {
+        addComercioLocal(nuevoComercio);
+        // Invalidar cache de imagen del nuevo comercio
+        invalidateImageCache(nuevoComercio.iD_Comercio);
+      } else {
+        // Si no, recargar todo (fallback)
+        loadData();
+      }
       success('Comercio creado correctamente');
       setShowCreateModal(false);
-      loadData();
     } catch (err) {
       error('Error al crear el comercio');
       throw err;
@@ -366,10 +446,13 @@ const AdminComercios = () => {
   const handleUpdateComercio = async (comercioData) => {
     try {
       await updateComercio(comercioData.iD_Comercio, comercioData);
+      // Actualizar en estado local
+      updateComercioLocal(comercioData.iD_Comercio, comercioData);
+      // Invalidar cache de imagen para forzar recarga
+      invalidateImageCache(comercioData.iD_Comercio);
       success('Comercio actualizado correctamente');
       setShowEditModal(false);
       setComercioToEdit(null);
-      loadData();
     } catch (err) {
       error('Error al actualizar el comercio');
       throw err;
@@ -382,27 +465,15 @@ const AdminComercios = () => {
     try {
       setIsDeleting(true);
       await deleteComercio(comercioToDelete.iD_Comercio);
+      // Eliminar del estado local
+      removeComercioLocal(comercioToDelete.iD_Comercio);
       success(`Comercio "${comercioToDelete.nombre}" eliminado`);
       setShowDeleteModal(false);
       setComercioToDelete(null);
-      loadData();
     } catch (err) {
       error('Error al eliminar el comercio');
     } finally {
       setIsDeleting(false);
-    }
-  };
-
-  // Para ver detalle, también necesitamos cargar la foto
-  const handleVerDetalle = async (comercio) => {
-    try {
-      const comercioCompleto = await getComercioById(comercio.iD_Comercio);
-      setSelectedComercio(comercioCompleto);
-      setShowDetailModal(true);
-    } catch (err) {
-      // Si falla, mostrar sin foto
-      setSelectedComercio(comercio);
-      setShowDetailModal(true);
     }
   };
 
@@ -438,6 +509,7 @@ const AdminComercios = () => {
   const pendientes = comercios.filter(c => !c.estado && !c.motivoRechazo).length;
   const aprobados = comercios.filter(c => c.estado).length;
 
+  // RENDER
   return (
     <AdminLayout
       title="Gestión de Comercios"
@@ -532,9 +604,8 @@ const AdminComercios = () => {
             setActionType(null);
           }}
           onConfirm={confirmAction}
+          comercio={comercioToAction}
           actionType={actionType}
-          itemName={comercioToAction.nombre}
-          itemType="comercio"
         />
       )}
 
@@ -551,6 +622,16 @@ const AdminComercios = () => {
           itemType="comercio"
           isDeleting={isDeleting}
         />
+      )}
+
+      {/* Loading overlay para edición */}
+      {loadingEdit && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 shadow-2xl flex items-center gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+            <span className="text-gray-700">Cargando comercio...</span>
+          </div>
+        </div>
       )}
     </AdminLayout>
   );

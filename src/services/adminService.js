@@ -28,15 +28,38 @@ export const getAllComercios = async () => {
   return response.data;
 };
 
+// Helper para formatear comercio al formato que espera la API (PascalCase)
+const formatComercioForAPI = (comercio, estado, motivoRechazo = null) => {
+  return {
+    ID_Comercio: comercio.iD_Comercio || comercio.ID_Comercio,
+    Nombre: comercio.nombre || comercio.Nombre,
+    Direccion: comercio.direccion || comercio.Direccion,
+    Telefono: comercio.telefono || comercio.Telefono || '',
+    Correo: comercio.correo || comercio.Correo,
+    NroDocumento: comercio.nroDocumento || comercio.NroDocumento || '',
+    TipoDocumento: comercio.tipoDocumento || comercio.TipoDocumento || 'CUIT',
+    ID_TipoComercio: comercio.iD_TipoComercio || comercio.ID_TipoComercio,
+    Capacidad: comercio.capacidad || comercio.Capacidad || 0,
+    Mesas: comercio.mesas || comercio.Mesas || 0,
+    GeneroMusical: comercio.generoMusical || comercio.GeneroMusical || '',
+    HoraIngreso: comercio.horaIngreso || comercio.HoraIngreso || '00:00:00',
+    HoraCierre: comercio.horaCierre || comercio.HoraCierre || '00:00:00',
+    Foto: comercio.foto || comercio.Foto || null,
+    Estado: estado,
+    MotivoRechazo: motivoRechazo,
+    ID_Usuario: comercio.iD_Usuario || comercio.ID_Usuario,
+  };
+};
+
 export const aprobarComercio = async (id, comercioData) => {
-  const updatedData = { ...comercioData, estado: true, motivoRechazo: null };
-  const response = await api.put(`/api/Comercios/actualizar/${id}`, updatedData);
+  const formattedData = formatComercioForAPI(comercioData, true, null);
+  const response = await api.put(`/api/Comercios/actualizar/${id}`, formattedData);
   return response.data;
 };
 
 export const rechazarComercio = async (id, comercioData, motivo) => {
-  const updatedData = { ...comercioData, estado: false, motivoRechazo: motivo };
-  const response = await api.put(`/api/Comercios/actualizar/${id}`, updatedData);
+  const formattedData = formatComercioForAPI(comercioData, false, motivo);
+  const response = await api.put(`/api/Comercios/actualizar/${id}`, formattedData);
   return response.data;
 };
 

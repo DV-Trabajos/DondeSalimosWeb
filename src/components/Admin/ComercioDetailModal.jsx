@@ -2,7 +2,7 @@
 import { useEffect, useCallback } from 'react';
 import { 
   X, Store, Mail, Phone, MapPin, Calendar, CheckCircle, XCircle, 
-  Clock, Users, Music, FileText, AlertTriangle, ExternalLink, Hash, Sparkles, Image as ImageIcon
+  Clock, Users, Music, FileText, AlertTriangle, ExternalLink, Hash, Sparkles
 } from 'lucide-react';
 import { formatDate, convertBase64ToImage } from '../../utils/formatters';
 
@@ -171,7 +171,7 @@ const ComercioDetailModal = ({ comercio, isOpen, onClose, tiposComercioMap = {} 
               )}
             </div>
 
-            {/* Información de contacto */}
+            {/* INFORMACIÓN DE CONTACTO */}
             <div className="bg-gray-50 rounded-2xl p-5 mb-6">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
@@ -207,7 +207,7 @@ const ComercioDetailModal = ({ comercio, isOpen, onClose, tiposComercioMap = {} 
               </div>
             </div>
 
-            {/* Información Fiscal */}
+            {/* INFORMACIÓN FISCAL */}
             {comercio.nroDocumento && (
               <div className="bg-gray-50 rounded-2xl p-5 mb-6">
                 <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -231,7 +231,7 @@ const ComercioDetailModal = ({ comercio, isOpen, onClose, tiposComercioMap = {} 
               </div>
             )}
 
-            {/* Información Adicional */}
+            {/* INFORMACIÓN DEL LOCAL */}
             <div className="bg-gray-50 rounded-2xl p-5 mb-6">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Store className="w-4 h-4" />

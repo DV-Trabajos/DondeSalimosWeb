@@ -436,6 +436,7 @@ const CreateComercioModal = ({ isOpen, onClose, onSubmit, usuarios = [], comerci
                     value={formData.telefono}
                     onChange={handleChange}
                     placeholder="Ej: 1156789012"
+                    maxLength={15}
                     className="w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all border-gray-200 hover:border-gray-300"
                   />
                 </FormField>
