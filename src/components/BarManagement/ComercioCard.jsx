@@ -5,7 +5,7 @@ import {
   Edit2, MapPin, Phone, Calendar, CheckCircle, 
   XCircle, Clock, AlertTriangle 
 } from 'lucide-react';
-import { getAllReservas } from '../../services/reservasService';
+import { getAllReservas, filterReservasFuturas } from '../../services/reservasService';
 import { getAllTiposComercio } from '../../services/tiposComercioService';
 import { useNotification } from '../../hooks/useNotification';
 import { convertBase64ToImage } from '../../utils/formatters';
@@ -32,7 +32,7 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
     const cargarTipos = async () => {
       try {
         const tipos = await getAllTiposComercio();
-        // Crear mapa de ID -> Descripción
+        // Crear mapa de ID
         const map = {};
         tipos.forEach(tipo => {
           const id = tipo.iD_TipoComercio || tipo.ID_TipoComercio;
@@ -66,13 +66,19 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
       setLoading(true);
       const allReservas = await getAllReservas();
       
+      // Filtrar reservas de este comercio
       const reservasComercio = allReservas.filter(r => r.iD_Comercio === comercio.iD_Comercio);
       
-      const pendientes = reservasComercio.filter(r => 
-        r.estado === null || r.estado === undefined
+      // Solo considerar reservas futuras (activas)
+      const reservasFuturas = filterReservasFuturas(reservasComercio);
+      
+      // Pendientes = estado false Y sin motivo de rechazo
+      const pendientes = reservasFuturas.filter(r => 
+        r.estado === false && !r.motivoRechazo
       ).length;
       
-      const hoy = reservasComercio.filter(r => {
+      // Reservas de hoy (futuras)
+      const hoy = reservasFuturas.filter(r => {
         const fechaReserva = new Date(r.fechaReserva);
         const hoyFecha = new Date();
         return (
@@ -83,7 +89,7 @@ const ComercioCard = ({ comercio, onEdit, onReload }) => {
       }).length;
 
       setEstadisticas({
-        total: reservasComercio.length,
+        total: reservasFuturas.length,  // Total de reservas activas/futuras
         pendientes,
         hoy
       });
