@@ -208,8 +208,8 @@ const GoogleMapView = ({
     const types = place.types || [];
     let emoji = '📍';
     
-    if (types.includes('bar')) emoji = '🍺';
-    else if (types.includes('night_club')) emoji = '🪩';
+    if (types.includes('night_club')) emoji = '🪩';
+    else if (types.includes('bar')) emoji = '🍺';
     else if (types.includes('restaurant')) emoji = '🍽️';
     else if (types.includes('cafe')) emoji = '☕';
     
